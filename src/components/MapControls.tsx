@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -9,7 +8,7 @@ const MapControls = () => {
   const { clearPoints, showTransit, toggleTransit, showRestaurants, toggleRestaurants } = useMap();
 
   return (
-    <Card className="absolute top-4 left-4 p-4 space-y-2 z-[1000] bg-white/95 backdrop-blur-sm">
+    <Card className="absolute top-4 right-4 p-4 space-y-2 z-[1000] bg-white/95 backdrop-blur-sm">
       <div className="flex flex-col space-y-2">
         <Button
           variant={showTransit ? "default" : "outline"}

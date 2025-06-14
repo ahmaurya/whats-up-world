@@ -10,18 +10,18 @@ interface TransitLinesManagerProps {
 
 const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
   const { showTransit } = useMap();
-  const transitLayersRef = useRef<L.LayerGroup[]>([]);
+  const transitLayerGroupRef = useRef<L.LayerGroup | null>(null);
 
   const createTransitLines = () => {
     if (!map.current) return;
 
-    // Clear existing transit layers
-    transitLayersRef.current.forEach(layer => {
-      if (map.current!.hasLayer(layer)) {
-        map.current!.removeLayer(layer);
-      }
-    });
-    transitLayersRef.current = [];
+    // Clear existing transit layer group
+    if (transitLayerGroupRef.current && map.current.hasLayer(transitLayerGroupRef.current)) {
+      map.current.removeLayer(transitLayerGroupRef.current);
+    }
+
+    // Create new layer group for all transit lines
+    transitLayerGroupRef.current = L.layerGroup();
 
     Object.entries(transitLines).forEach(([city, lines]) => {
       // Add subway lines
@@ -39,8 +39,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
           className: 'transit-tooltip'
         });
         
-        const layerGroup = L.layerGroup([subwayLine]);
-        transitLayersRef.current.push(layerGroup);
+        transitLayerGroupRef.current!.addLayer(subwayLine);
       });
 
       // Add bus lines
@@ -59,28 +58,23 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
           className: 'transit-tooltip'
         });
         
-        const layerGroup = L.layerGroup([busLine]);
-        transitLayersRef.current.push(layerGroup);
+        transitLayerGroupRef.current!.addLayer(busLine);
       });
     });
   };
 
   // Update transit line visibility when showTransit changes
   useEffect(() => {
-    if (!map.current) return;
+    if (!map.current || !transitLayerGroupRef.current) return;
 
     if (showTransit) {
-      transitLayersRef.current.forEach(layer => {
-        if (!map.current!.hasLayer(layer)) {
-          layer.addTo(map.current!);
-        }
-      });
+      if (!map.current.hasLayer(transitLayerGroupRef.current)) {
+        transitLayerGroupRef.current.addTo(map.current);
+      }
     } else {
-      transitLayersRef.current.forEach(layer => {
-        if (map.current!.hasLayer(layer)) {
-          map.current!.removeLayer(layer);
-        }
-      });
+      if (map.current.hasLayer(transitLayerGroupRef.current)) {
+        map.current.removeLayer(transitLayerGroupRef.current);
+      }
     }
   }, [showTransit]);
 
@@ -90,10 +84,8 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
       createTransitLines();
       
       // Add lines to map if showTransit is true
-      if (showTransit) {
-        transitLayersRef.current.forEach(layer => {
-          layer.addTo(map.current!);
-        });
+      if (showTransit && transitLayerGroupRef.current) {
+        transitLayerGroupRef.current.addTo(map.current);
       }
     }
   }, [map.current]);

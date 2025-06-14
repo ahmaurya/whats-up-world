@@ -11,6 +11,7 @@ export interface Restaurant {
   cuisine: string;
   description: string;
   isVegetarian?: boolean;
+  website?: string;
 }
 
 export const useRestaurants = () => {

@@ -1,5 +1,5 @@
 
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import RestaurantPopup from '../RestaurantPopup';
 import { Restaurant } from '@/hooks/useRestaurants';
@@ -20,7 +20,7 @@ describe('RestaurantPopup - UI Regression Tests', () => {
   const mockOnClose = vi.fn();
 
   it('should not render a close button (X button)', () => {
-    render(
+    const { container } = render(
       <RestaurantPopup 
         restaurant={mockRestaurant} 
         onClose={mockOnClose} 
@@ -28,29 +28,26 @@ describe('RestaurantPopup - UI Regression Tests', () => {
     );
 
     // Check that there's no close button with common close button patterns
-    expect(screen.queryByText('×')).not.toBeInTheDocument();
-    expect(screen.queryByText('✕')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/close/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /close/i })).not.toBeInTheDocument();
+    expect(container.querySelector('button')).toBeNull();
     
     // Also check for common close button classes or data attributes
-    const closeButtons = document.querySelectorAll('[data-testid*="close"], [class*="close"], button[aria-label*="close"]');
+    const closeButtons = container.querySelectorAll('[data-testid*="close"], [class*="close"], button[aria-label*="close"]');
     expect(closeButtons).toHaveLength(0);
   });
 
   it('should render restaurant information correctly', () => {
-    render(
+    const { getByText } = render(
       <RestaurantPopup 
         restaurant={mockRestaurant} 
         onClose={mockOnClose} 
       />
     );
 
-    expect(screen.getByText('Test Restaurant')).toBeInTheDocument();
-    expect(screen.getByText('4.5')).toBeInTheDocument();
-    expect(screen.getByText('(100 reviews)')).toBeInTheDocument();
-    expect(screen.getByText('Italian')).toBeInTheDocument();
-    expect(screen.getByText('A nice Italian restaurant')).toBeInTheDocument();
-    expect(screen.getByText('Visit Website')).toBeInTheDocument();
+    expect(getByText('Test Restaurant')).toBeInTheDocument();
+    expect(getByText('4.5')).toBeInTheDocument();
+    expect(getByText('(100 reviews)')).toBeInTheDocument();
+    expect(getByText('Italian')).toBeInTheDocument();
+    expect(getByText('A nice Italian restaurant')).toBeInTheDocument();
+    expect(getByText('Visit Website')).toBeInTheDocument();
   });
 });

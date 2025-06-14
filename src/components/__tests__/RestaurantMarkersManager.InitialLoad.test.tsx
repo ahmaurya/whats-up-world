@@ -1,5 +1,5 @@
 
-import { render, waitFor } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import RestaurantMarkersManager from '../RestaurantMarkersManager';
 import { useRestaurants } from '@/hooks/useRestaurants';
@@ -86,15 +86,16 @@ describe('RestaurantMarkersManager - Initial Load Tests', () => {
       />
     );
 
-    await waitFor(() => {
-      expect(mockFetchRestaurants).toHaveBeenCalledWith(
-        47.6062,
-        -122.3321,
-        5000,
-        true,
-        false
-      );
-    }, { timeout: 2000 });
+    // Wait for initial fetch
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    expect(mockFetchRestaurants).toHaveBeenCalledWith(
+      47.6062,
+      -122.3321,
+      5000,
+      true,
+      false
+    );
   });
 
   it('should fetch restaurants on initial load with medium zoom level (zoom = 12)', async () => {
@@ -107,15 +108,16 @@ describe('RestaurantMarkersManager - Initial Load Tests', () => {
       />
     );
 
-    await waitFor(() => {
-      expect(mockFetchRestaurants).toHaveBeenCalledWith(
-        47.6062,
-        -122.3321,
-        5000,
-        true,
-        false
-      );
-    }, { timeout: 2000 });
+    // Wait for initial fetch
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    expect(mockFetchRestaurants).toHaveBeenCalledWith(
+      47.6062,
+      -122.3321,
+      5000,
+      true,
+      false
+    );
   });
 
   it('should fetch restaurants on initial load with high zoom level (zoom > 12)', async () => {
@@ -128,15 +130,16 @@ describe('RestaurantMarkersManager - Initial Load Tests', () => {
       />
     );
 
-    await waitFor(() => {
-      expect(mockFetchRestaurants).toHaveBeenCalledWith(
-        47.6062,
-        -122.3321,
-        5000,
-        true,
-        false
-      );
-    }, { timeout: 2000 });
+    // Wait for initial fetch
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    expect(mockFetchRestaurants).toHaveBeenCalledWith(
+      47.6062,
+      -122.3321,
+      5000,
+      true,
+      false
+    );
   });
 
   it('should ensure zoom level does not prevent initial restaurant loading', async () => {
@@ -149,14 +152,15 @@ describe('RestaurantMarkersManager - Initial Load Tests', () => {
       />
     );
 
-    await waitFor(() => {
-      expect(mockFetchRestaurants).toHaveBeenCalledWith(
-        47.6062,
-        -122.3321,
-        5000,
-        true,
-        false
-      );
-    }, { timeout: 2000 });
+    // Wait for initial fetch
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    expect(mockFetchRestaurants).toHaveBeenCalledWith(
+      47.6062,
+      -122.3321,
+      5000,
+      true,
+      false
+    );
   });
 });

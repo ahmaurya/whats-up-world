@@ -1,5 +1,5 @@
 
-import { render, waitFor } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import RestaurantMarkersManager from '../RestaurantMarkersManager';
 import { useRestaurants } from '@/hooks/useRestaurants';
@@ -84,6 +84,7 @@ describe('RestaurantMarkersManager - Filtering Tests', () => {
       />
     );
 
+    // Wait a bit and then check that fetch was not called
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     expect(mockFetchRestaurants).not.toHaveBeenCalled();
@@ -117,14 +118,15 @@ describe('RestaurantMarkersManager - Filtering Tests', () => {
       />
     );
 
-    await waitFor(() => {
-      expect(mockFetchRestaurants).toHaveBeenCalledWith(
-        47.6062,
-        -122.3321,
-        5000,
-        true,
-        true
-      );
-    }, { timeout: 2000 });
+    // Wait for the component to make the fetch call
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    expect(mockFetchRestaurants).toHaveBeenCalledWith(
+      47.6062,
+      -122.3321,
+      5000,
+      true,
+      true
+    );
   });
 });

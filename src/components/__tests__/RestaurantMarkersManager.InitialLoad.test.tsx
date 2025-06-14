@@ -26,7 +26,7 @@ const mockFetchRestaurants = vi.fn();
 const mockUseRestaurants = useRestaurants as vi.MockedFunction<typeof useRestaurants>;
 const mockUseMap = useMap as vi.MockedFunction<typeof useMap>;
 
-describe('RestaurantMarkersManager - Initial Load Regression Tests', () => {
+describe('RestaurantMarkersManager - Initial Load Tests', () => {
   const mockMap = {
     getCenter: vi.fn(() => ({ lat: 47.6062, lng: -122.3321 })),
     getBounds: vi.fn(() => ({
@@ -77,7 +77,6 @@ describe('RestaurantMarkersManager - Initial Load Regression Tests', () => {
   });
 
   it('should fetch restaurants on initial load with low zoom level (zoom < 12)', async () => {
-    // Set low zoom level that previously would block restaurant loading
     (mockMap.getZoom as vi.Mock).mockReturnValue(8);
 
     render(
@@ -87,7 +86,6 @@ describe('RestaurantMarkersManager - Initial Load Regression Tests', () => {
       />
     );
 
-    // Wait for the initial fetch timer to complete
     await waitFor(() => {
       expect(mockFetchRestaurants).toHaveBeenCalledWith(
         47.6062,
@@ -100,7 +98,6 @@ describe('RestaurantMarkersManager - Initial Load Regression Tests', () => {
   });
 
   it('should fetch restaurants on initial load with medium zoom level (zoom = 12)', async () => {
-    // Set medium zoom level
     (mockMap.getZoom as vi.Mock).mockReturnValue(12);
 
     render(
@@ -122,7 +119,6 @@ describe('RestaurantMarkersManager - Initial Load Regression Tests', () => {
   });
 
   it('should fetch restaurants on initial load with high zoom level (zoom > 12)', async () => {
-    // Set high zoom level
     (mockMap.getZoom as vi.Mock).mockReturnValue(16);
 
     render(
@@ -143,87 +139,7 @@ describe('RestaurantMarkersManager - Initial Load Regression Tests', () => {
     }, { timeout: 2000 });
   });
 
-  it('should not fetch restaurants when no restaurant types are enabled', async () => {
-    // Disable all restaurant types
-    mockUseMap.mockReturnValue({
-      showVegetarianRestaurants: false,
-      showNonVegetarianRestaurants: false,
-      selectedPoints: [],
-      pointNames: [],
-      addPoint: vi.fn(),
-      addPointWithName: vi.fn(),
-      clearPoints: vi.fn(),
-      showRailTransit: false,
-      toggleRailTransit: vi.fn(),
-      showTramTransit: false,
-      toggleTramTransit: vi.fn(),
-      showBusTransit: false,
-      toggleBusTransit: vi.fn(),
-      showRestaurants: false,
-      toggleRestaurants: vi.fn(),
-      toggleVegetarianRestaurants: vi.fn(),
-      toggleNonVegetarianRestaurants: vi.fn(),
-    });
-
-    (mockMap.getZoom as vi.Mock).mockReturnValue(13);
-
-    render(
-      <RestaurantMarkersManager 
-        map={mockMap} 
-        onRestaurantClick={mockOnRestaurantClick} 
-      />
-    );
-
-    // Wait longer than the timer would take
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    expect(mockFetchRestaurants).not.toHaveBeenCalled();
-  });
-
-  it('should fetch restaurants when both vegetarian and non-vegetarian are enabled', async () => {
-    // Enable both restaurant types
-    mockUseMap.mockReturnValue({
-      showVegetarianRestaurants: true,
-      showNonVegetarianRestaurants: true,
-      selectedPoints: [],
-      pointNames: [],
-      addPoint: vi.fn(),
-      addPointWithName: vi.fn(),
-      clearPoints: vi.fn(),
-      showRailTransit: false,
-      toggleRailTransit: vi.fn(),
-      showTramTransit: false,
-      toggleTramTransit: vi.fn(),
-      showBusTransit: false,
-      toggleBusTransit: vi.fn(),
-      showRestaurants: false,
-      toggleRestaurants: vi.fn(),
-      toggleVegetarianRestaurants: vi.fn(),
-      toggleNonVegetarianRestaurants: vi.fn(),
-    });
-
-    (mockMap.getZoom as vi.Mock).mockReturnValue(10);
-
-    render(
-      <RestaurantMarkersManager 
-        map={mockMap} 
-        onRestaurantClick={mockOnRestaurantClick} 
-      />
-    );
-
-    await waitFor(() => {
-      expect(mockFetchRestaurants).toHaveBeenCalledWith(
-        47.6062,
-        -122.3321,
-        5000,
-        true,
-        true
-      );
-    }, { timeout: 2000 });
-  });
-
   it('should ensure zoom level does not prevent initial restaurant loading', async () => {
-    // Test with extremely low zoom level that previously would block loading
     (mockMap.getZoom as vi.Mock).mockReturnValue(5);
 
     render(

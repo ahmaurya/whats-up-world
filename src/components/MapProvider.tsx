@@ -13,6 +13,10 @@ interface MapContextType {
   toggleBusTransit: () => void;
   showRestaurants: boolean;
   toggleRestaurants: () => void;
+  showVegetarianRestaurants: boolean;
+  toggleVegetarianRestaurants: () => void;
+  showNonVegetarianRestaurants: boolean;
+  toggleNonVegetarianRestaurants: () => void;
 }
 
 const MapContext = createContext<MapContextType | undefined>(undefined);
@@ -35,6 +39,8 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
   const [showRailTransit, setShowRailTransit] = useState(true);
   const [showBusTransit, setShowBusTransit] = useState(true);
   const [showRestaurants, setShowRestaurants] = useState(false);
+  const [showVegetarianRestaurants, setShowVegetarianRestaurants] = useState(true);
+  const [showNonVegetarianRestaurants, setShowNonVegetarianRestaurants] = useState(true);
 
   const addPoint = (point: [number, number]) => {
     setSelectedPoints(prev => {
@@ -88,6 +94,14 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
     setShowRestaurants(prev => !prev);
   };
 
+  const toggleVegetarianRestaurants = () => {
+    setShowVegetarianRestaurants(prev => !prev);
+  };
+
+  const toggleNonVegetarianRestaurants = () => {
+    setShowNonVegetarianRestaurants(prev => !prev);
+  };
+
   return (
     <MapContext.Provider value={{
       selectedPoints,
@@ -100,7 +114,11 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
       showBusTransit,
       toggleBusTransit,
       showRestaurants,
-      toggleRestaurants
+      toggleRestaurants,
+      showVegetarianRestaurants,
+      toggleVegetarianRestaurants,
+      showNonVegetarianRestaurants,
+      toggleNonVegetarianRestaurants
     }}>
       {children}
     </MapContext.Provider>

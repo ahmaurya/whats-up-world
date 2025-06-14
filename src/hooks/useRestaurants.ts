@@ -10,6 +10,7 @@ export interface Restaurant {
   reviews: number;
   cuisine: string;
   description: string;
+  isVegetarian?: boolean;
 }
 
 export const useRestaurants = () => {
@@ -36,8 +37,14 @@ export const useRestaurants = () => {
         throw new Error(data.error);
       }
 
-      setRestaurants(data.restaurants || []);
-      console.log(`Loaded ${data.restaurants?.length || 0} restaurants`);
+      // Process restaurants and add vegetarian classification
+      const processedRestaurants = (data.restaurants || []).map((restaurant: Restaurant) => ({
+        ...restaurant,
+        isVegetarian: isVegetarianRestaurant(restaurant)
+      }));
+
+      setRestaurants(processedRestaurants);
+      console.log(`Loaded ${processedRestaurants.length} restaurants`);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch restaurants';
@@ -55,4 +62,15 @@ export const useRestaurants = () => {
     error,
     fetchRestaurants
   };
+};
+
+// Helper function to determine if a restaurant is vegetarian/vegan
+const isVegetarianRestaurant = (restaurant: Restaurant): boolean => {
+  const vegKeywords = [
+    'vegan', 'vegetarian', 'plant-based', 'veggie', 'salad', 'juice',
+    'smoothie', 'health', 'organic', 'green', 'natural'
+  ];
+  
+  const text = `${restaurant.name} ${restaurant.cuisine} ${restaurant.description}`.toLowerCase();
+  return vegKeywords.some(keyword => text.includes(keyword));
 };

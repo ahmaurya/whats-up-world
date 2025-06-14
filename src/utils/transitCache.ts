@@ -15,6 +15,16 @@ class TransitCache {
     return `king-county-metro-${south.toFixed(3)},${west.toFixed(3)},${north.toFixed(3)},${east.toFixed(3)}`;
   }
 
+  // Get immediate cached data if available
+  getImmediate(requestedBounds: BoundingBox): TransitData | null {
+    const coverageCheck = this.isBoundsCovered(requestedBounds);
+    if (coverageCheck.covered && coverageCheck.cachedData) {
+      console.log('🚀 Using immediate cached data for faster display');
+      return coverageCheck.cachedData;
+    }
+    return null;
+  }
+
   // Check if a bounding box is covered by existing cached data
   isBoundsCovered(requestedBounds: BoundingBox): { covered: boolean; cachedData?: TransitData } {
     const now = Date.now();

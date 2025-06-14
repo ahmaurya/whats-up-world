@@ -8,6 +8,7 @@ export const useTransitData = (map: L.Map | null) => {
   const [transitData, setTransitData] = useState<TransitData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const lastBoundsRef = useRef<BoundingBox | null>(null);
+  const isInitialLoadRef = useRef(true);
 
   // Helper function to check if bounds have changed significantly
   const boundsChangedSignificantly = (newBounds: BoundingBox, oldBounds: BoundingBox | null): boolean => {
@@ -23,10 +24,14 @@ export const useTransitData = (map: L.Map | null) => {
   };
 
   // Fetch transit data for current map bounds
-  const loadTransitData = async (bounds: BoundingBox) => {
-    setIsLoading(true);
+  const loadTransitData = async (bounds: BoundingBox, useCache = true) => {
     console.log('🚌 Loading King County Metro real-time transit data...');
     console.log('📍 Map bounds:', bounds);
+
+    // Only show loading for initial load, not for background updates
+    if (isInitialLoadRef.current) {
+      setIsLoading(true);
+    }
 
     try {
       const data = await fetchTransitData(bounds);
@@ -37,12 +42,16 @@ export const useTransitData = (map: L.Map | null) => {
         tram: data.tram.length,
         rail: data.rail.length
       });
+      
       setTransitData(data);
       lastBoundsRef.current = bounds;
+      isInitialLoadRef.current = false;
     } catch (error) {
       console.error('❌ Error loading King County Metro transit data:', error);
     } finally {
-      setIsLoading(false);
+      if (isInitialLoadRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -75,8 +84,9 @@ export const useTransitData = (map: L.Map | null) => {
       };
 
       if (boundsChangedSignificantly(newBoundingBox, lastBoundsRef.current)) {
-        console.log('🔄 Map bounds changed significantly, checking cache for transit data...');
-        loadTransitData(newBoundingBox);
+        console.log('🔄 Map bounds changed significantly, updating transit data in background...');
+        // Load data asynchronously without blocking UI
+        loadTransitData(newBoundingBox, true);
       }
     };
 

@@ -59,7 +59,19 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
               color: line.color || '#0066CC',
               weight: line.type === 'subway' ? 4 : 3,
               opacity: 0.8
-            }).bindPopup(`
+            });
+
+            // Add hover tooltip
+            const tooltipContent = `<strong>${line.name}</strong>${line.ref ? ` (Route ${line.ref})` : ''}`;
+            polyline.bindTooltip(tooltipContent, {
+              permanent: false,
+              direction: 'top',
+              offset: [0, -10],
+              className: 'transit-tooltip'
+            });
+
+            // Add click popup with more details
+            polyline.bindPopup(`
               <div class="transit-popup">
                 <strong>${line.name}</strong><br/>
                 <em>${line.operator || 'Unknown Operator'}</em><br/>
@@ -118,9 +130,20 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
             const polyline = L.polyline(leafletCoordinates, {
               color: line.color || '#00AA44',
               weight: 2,
-              opacity: 0.8,
-              dashArray: '5, 5'
-            }).bindPopup(`
+              opacity: 0.8
+            });
+
+            // Add hover tooltip
+            const tooltipContent = `<strong>${line.name}</strong>${line.ref ? ` (Route ${line.ref})` : ''}`;
+            polyline.bindTooltip(tooltipContent, {
+              permanent: false,
+              direction: 'top',
+              offset: [0, -10],
+              className: 'transit-tooltip'
+            });
+
+            // Add click popup with more details
+            polyline.bindPopup(`
               <div class="transit-popup">
                 <strong>${line.name}</strong><br/>
                 <em>${line.operator || 'Unknown Operator'}</em><br/>

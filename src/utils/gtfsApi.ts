@@ -8,11 +8,15 @@ export const fetchTransitData = async (bounds: BoundingBox): Promise<TransitData
   // Clean up expired cache entries first
   transitCache.cleanup();
   
-  // Check if the requested bounds are already covered by cached data
-  const coverageCheck = transitCache.isBoundsCovered(bounds);
-  if (coverageCheck.covered && coverageCheck.cachedData) {
-    console.log('✅ Using cached data that covers the requested area');
-    return coverageCheck.cachedData;
+  // Check for immediate cached data first
+  const immediateData = transitCache.getImmediate(bounds);
+  if (immediateData) {
+    // Return cached data immediately, but still fetch in background if needed
+    const coverageCheck = transitCache.isBoundsCovered(bounds);
+    if (coverageCheck.covered) {
+      console.log('✅ Using immediate cached data, no background fetch needed');
+      return immediateData;
+    }
   }
 
   // Check exact cache match as fallback

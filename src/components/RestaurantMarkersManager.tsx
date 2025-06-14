@@ -29,10 +29,14 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     restaurantMarkersRef.current = [];
 
     restaurants.forEach((restaurant) => {
+      // Determine marker color based on dietary type
+      const isVegetarian = restaurant.isVegetarian;
+      const markerColor = isVegetarian ? '#22c55e' : '#ef4444'; // Green for vegetarian, red for non-vegetarian
+      
       const marker = L.marker([restaurant.coordinates[1], restaurant.coordinates[0]], {
         icon: L.divIcon({
           className: 'restaurant-marker',
-          html: '<div style="background-color: #f59e0b; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; cursor: pointer;"></div>',
+          html: `<div style="background-color: ${markerColor}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; cursor: pointer;"></div>`,
           iconSize: [20, 20],
           iconAnchor: [10, 10]
         })
@@ -49,6 +53,9 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
           </div>
           <div style="margin-bottom: 6px; font-size: 12px;">
             <strong>Cuisine:</strong> ${restaurant.cuisine}
+          </div>
+          <div style="margin-bottom: 6px; font-size: 12px;">
+            <strong>Type:</strong> <span style="color: ${markerColor}; font-weight: bold;">${isVegetarian ? 'Vegetarian/Vegan' : 'Non-Vegetarian'}</span>
           </div>
           <div style="font-size: 12px; color: #666;">
             ${restaurant.description}

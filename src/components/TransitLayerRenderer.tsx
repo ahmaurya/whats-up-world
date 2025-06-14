@@ -47,7 +47,7 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
       console.log(`📊 Processing ${railLines.length} rail transit lines`);
       
       let addedCount = 0;
-      railLines.forEach((line, index) => {
+      railLines.forEach((line) => {
         if (line.coordinates && line.coordinates.length > 1) {
           try {
             // Convert coordinates from [longitude, latitude] to [latitude, longitude] for Leaflet
@@ -58,7 +58,8 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
             const polyline = L.polyline(leafletCoordinates, {
               color: line.color || '#0066CC',
               weight: line.type === 'subway' ? 4 : 3,
-              opacity: 0.8
+              opacity: 0.8,
+              dashArray: undefined // Ensure solid lines
             });
 
             // Add hover tooltip
@@ -119,7 +120,7 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
       console.log(`📊 Processing ${busLines.length} bus transit lines`);
       
       let addedCount = 0;
-      busLines.forEach((line, index) => {
+      busLines.forEach((line) => {
         if (line.coordinates && line.coordinates.length > 1) {
           try {
             // Convert coordinates from [longitude, latitude] to [latitude, longitude] for Leaflet
@@ -130,7 +131,8 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
             const polyline = L.polyline(leafletCoordinates, {
               color: line.color || '#00AA44',
               weight: 2,
-              opacity: 0.8
+              opacity: 0.8,
+              dashArray: undefined // Ensure solid lines, no dashes
             });
 
             // Add hover tooltip

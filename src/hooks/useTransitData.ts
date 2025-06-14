@@ -24,11 +24,11 @@ export const useTransitData = (map: L.Map | null) => {
   };
 
   // Fetch transit data for current map bounds
-  const loadTransitData = async (bounds: BoundingBox, useCache = true) => {
-    console.log('🚌 Loading King County Metro real-time transit data...');
+  const loadTransitData = async (bounds: BoundingBox) => {
+    console.log('🚌 Loading King County Metro transit data...');
     console.log('📍 Map bounds:', bounds);
 
-    // Only show loading for initial load, not for background updates
+    // Show loading for initial load
     if (isInitialLoadRef.current) {
       setIsLoading(true);
     }
@@ -43,15 +43,21 @@ export const useTransitData = (map: L.Map | null) => {
         rail: data.rail.length
       });
       
+      // Always set the data, even if it's from cache
       setTransitData(data);
       lastBoundsRef.current = bounds;
       isInitialLoadRef.current = false;
     } catch (error) {
       console.error('❌ Error loading King County Metro transit data:', error);
+      // Set empty data on error to prevent infinite loading
+      setTransitData({
+        subway: [],
+        bus: [],
+        tram: [],
+        rail: []
+      });
     } finally {
-      if (isInitialLoadRef.current) {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }
   };
 
@@ -84,9 +90,8 @@ export const useTransitData = (map: L.Map | null) => {
       };
 
       if (boundsChangedSignificantly(newBoundingBox, lastBoundsRef.current)) {
-        console.log('🔄 Map bounds changed significantly, updating transit data in background...');
-        // Load data asynchronously without blocking UI
-        loadTransitData(newBoundingBox, true);
+        console.log('🔄 Map bounds changed significantly, updating transit data...');
+        loadTransitData(newBoundingBox);
       }
     };
 

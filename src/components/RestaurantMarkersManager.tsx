@@ -13,7 +13,7 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
   map, 
   onRestaurantClick 
 }) => {
-  const { showRestaurants } = useMap();
+  const { showVegetarianRestaurants, showNonVegetarianRestaurants } = useMap();
   const { restaurants, fetchRestaurants, loading, error } = useRestaurants();
   const restaurantMarkersRef = useRef<L.Marker[]>([]);
 
@@ -32,6 +32,12 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
       // Determine marker color based on dietary type
       const isVegetarian = restaurant.isVegetarian;
       const markerColor = isVegetarian ? '#22c55e' : '#ef4444'; // Green for vegetarian, red for non-vegetarian
+      
+      // Check if we should show this restaurant based on toggle states
+      const shouldShow = (isVegetarian && showVegetarianRestaurants) || 
+                        (!isVegetarian && showNonVegetarianRestaurants);
+      
+      if (!shouldShow) return;
       
       const marker = L.marker([restaurant.coordinates[1], restaurant.coordinates[0]], {
         icon: L.divIcon({
@@ -78,7 +84,7 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
 
   // Fetch restaurants when map center changes or when restaurants are toggled on
   useEffect(() => {
-    if (!map || !showRestaurants) return;
+    if (!map || (!showVegetarianRestaurants && !showNonVegetarianRestaurants)) return;
 
     const handleMoveEnd = () => {
       if (!map) return;
@@ -106,13 +112,13 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
         map.off('moveend', handleMoveEnd);
       }
     };
-  }, [showRestaurants, fetchRestaurants]);
+  }, [showVegetarianRestaurants, showNonVegetarianRestaurants, fetchRestaurants]);
 
-  // Update restaurant marker visibility when showRestaurants changes
+  // Update restaurant marker visibility when toggle states change
   useEffect(() => {
     if (!map) return;
 
-    if (showRestaurants) {
+    if (showVegetarianRestaurants || showNonVegetarianRestaurants) {
       restaurantMarkersRef.current.forEach(marker => {
         if (!map.hasLayer(marker)) {
           marker.addTo(map);
@@ -125,19 +131,19 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
         }
       });
     }
-  }, [showRestaurants]);
+  }, [showVegetarianRestaurants, showNonVegetarianRestaurants]);
 
-  // Create markers when restaurants data changes
+  // Create markers when restaurants data changes or toggle states change
   useEffect(() => {
     createRestaurantMarkers();
     
-    // Add markers to map if showRestaurants is true
-    if (showRestaurants) {
+    // Add markers to map if either toggle is true
+    if (showVegetarianRestaurants || showNonVegetarianRestaurants) {
       restaurantMarkersRef.current.forEach(marker => {
         marker.addTo(map!);
       });
     }
-  }, [restaurants]);
+  }, [restaurants, showVegetarianRestaurants, showNonVegetarianRestaurants]);
 
   // Show loading/error state in console for debugging
   useEffect(() => {

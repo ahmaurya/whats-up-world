@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useMap } from './MapProvider';
-import { Map, Train, Bus } from 'lucide-react';
+import { Map, Train, Bus, Leaf, UtensilsCrossed } from 'lucide-react';
 
 const MapControls = () => {
   const { 
@@ -11,8 +11,10 @@ const MapControls = () => {
     toggleRailTransit, 
     showBusTransit, 
     toggleBusTransit, 
-    showRestaurants, 
-    toggleRestaurants 
+    showVegetarianRestaurants, 
+    toggleVegetarianRestaurants,
+    showNonVegetarianRestaurants,
+    toggleNonVegetarianRestaurants
   } = useMap();
 
   return (
@@ -22,7 +24,7 @@ const MapControls = () => {
           variant={showRailTransit ? "default" : "outline"}
           size="sm"
           onClick={toggleRailTransit}
-          className="flex items-center gap-2 w-full justify-center text-xs px-3 py-1.5 min-w-[130px]"
+          className="flex items-center gap-2 w-full justify-center text-xs px-3 py-1.5 min-w-[160px]"
         >
           <Train size={14} />
           Rail/Subway
@@ -32,20 +34,30 @@ const MapControls = () => {
           variant={showBusTransit ? "default" : "outline"}
           size="sm"
           onClick={toggleBusTransit}
-          className="flex items-center gap-2 w-full justify-center text-xs px-3 py-1.5 min-w-[130px]"
+          className="flex items-center gap-2 w-full justify-center text-xs px-3 py-1.5 min-w-[160px]"
         >
           <Bus size={14} />
           Bus Lines
         </Button>
         
         <Button
-          variant={showRestaurants ? "default" : "outline"}
+          variant={showVegetarianRestaurants ? "default" : "outline"}
           size="sm"
-          onClick={toggleRestaurants}
-          className="flex items-center gap-2 w-full justify-center text-xs px-3 py-1.5 min-w-[130px]"
+          onClick={toggleVegetarianRestaurants}
+          className="flex items-center gap-2 w-full justify-center text-xs px-3 py-1.5 min-w-[160px]"
         >
-          <Map size={14} />
-          Restaurants
+          <Leaf size={14} />
+          Vegetarian
+        </Button>
+
+        <Button
+          variant={showNonVegetarianRestaurants ? "default" : "outline"}
+          size="sm"
+          onClick={toggleNonVegetarianRestaurants}
+          className="flex items-center gap-2 w-full justify-center text-xs px-3 py-1.5 min-w-[160px]"
+        >
+          <UtensilsCrossed size={14} />
+          Non-Vegetarian
         </Button>
       </div>
       
@@ -56,12 +68,16 @@ const MapControls = () => {
             <span>Subway/Rail</span>
           </div>
           <div className="flex items-center gap-2 justify-center">
-            <div className="w-4 h-1 bg-green-500 rounded border-dashed border border-green-500"></div>
+            <div className="w-4 h-1 bg-green-500 rounded"></div>
             <span>Bus Lines</span>
           </div>
           <div className="flex items-center gap-2 justify-center">
-            <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
-            <span>Restaurants</span>
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            <span>Vegetarian</span>
+          </div>
+          <div className="flex items-center gap-2 justify-center">
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            <span>Non-Vegetarian</span>
           </div>
         </div>
       </div>

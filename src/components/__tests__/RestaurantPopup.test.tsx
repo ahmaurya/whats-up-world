@@ -1,6 +1,6 @@
 
 import { render } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import RestaurantPopup from '../RestaurantPopup';
 import { Restaurant } from '@/hooks/useRestaurants';
 
@@ -17,7 +17,7 @@ describe('RestaurantPopup - UI Regression Tests', () => {
     isVegetarian: true
   };
 
-  const mockOnClose = vi.fn();
+  const mockOnClose = () => {};
 
   it('should not render a close button (X button)', () => {
     const { container } = render(
@@ -43,11 +43,27 @@ describe('RestaurantPopup - UI Regression Tests', () => {
       />
     );
 
-    expect(getByText('Test Restaurant')).toBeInTheDocument();
-    expect(getByText('4.5')).toBeInTheDocument();
-    expect(getByText('(100 reviews)')).toBeInTheDocument();
-    expect(getByText('Italian')).toBeInTheDocument();
-    expect(getByText('A nice Italian restaurant')).toBeInTheDocument();
-    expect(getByText('Visit Website')).toBeInTheDocument();
+    expect(getByText('Test Restaurant')).toBeTruthy();
+    expect(getByText('4.5')).toBeTruthy();
+    expect(getByText('(100 reviews)')).toBeTruthy();
+    expect(getByText('Italian')).toBeTruthy();
+    expect(getByText('A nice Italian restaurant')).toBeTruthy();
+    expect(getByText('Visit Website')).toBeTruthy();
+  });
+
+  it('should render properly structured HTML', () => {
+    const { container } = render(
+      <RestaurantPopup 
+        restaurant={mockRestaurant} 
+        onClose={mockOnClose} 
+      />
+    );
+
+    // Check that the component renders without throwing
+    expect(container.firstChild).toBeTruthy();
+    
+    // Verify basic structure exists
+    const card = container.querySelector('.absolute');
+    expect(card).toBeTruthy();
   });
 });

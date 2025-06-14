@@ -17,12 +17,8 @@ export const transitLines = {
     ]
   },
   seattle: {
-    subway: [
-      [[-122.3421, 47.5962], [-122.3321, 47.6062], [-122.3221, 47.6162]], // Mock Link light rail
-    ],
-    bus: [
-      [[-122.3521, 47.5862], [-122.3421, 47.5962], [-122.3321, 47.6062]], // Mock bus line
-    ]
+    subway: [],
+    bus: []
   },
   newYork: {
     subway: [

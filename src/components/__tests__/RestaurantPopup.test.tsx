@@ -6,7 +6,7 @@ import { Restaurant } from '@/hooks/useRestaurants';
 
 describe('RestaurantPopup - UI Regression Tests', () => {
   const mockRestaurant: Restaurant = {
-    id: '1',
+    id: 1, // Changed from string to number to match Restaurant type
     name: 'Test Restaurant',
     coordinates: [-122.3321, 47.6062],
     rating: 4.5,

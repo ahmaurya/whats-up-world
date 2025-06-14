@@ -1,5 +1,5 @@
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import L from 'leaflet';
 import { useMap } from '@/components/MapProvider';
 
@@ -10,6 +10,12 @@ export const useLeaflet = () => {
 
   const initializeMap = useCallback(() => {
     if (!mapContainer.current) return;
+    
+    // If map already exists, don't reinitialize
+    if (map.current) return;
+
+    // Clear any existing content in the container
+    mapContainer.current.innerHTML = '';
 
     map.current = L.map(mapContainer.current).setView([39.8283, -98.5795], 4);
 
@@ -34,9 +40,25 @@ export const useLeaflet = () => {
     });
   }, [addPoint]);
 
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    if (map.current) {
+      map.current.remove();
+      map.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, [cleanup]);
+
   return {
     mapContainer,
     map,
-    initializeMap
+    initializeMap,
+    cleanup
   };
 };

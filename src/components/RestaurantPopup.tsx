@@ -15,7 +15,7 @@ const RestaurantPopup: React.FC<RestaurantPopupProps> = ({ restaurant, onClose }
     <Card className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-6 z-20 bg-white shadow-lg max-w-sm w-full mx-4 min-h-[250px]">
       <div className="flex justify-between items-start mb-4">
         <h3 className="text-lg font-bold pr-8">{restaurant.name}</h3>
-        <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0 flex-shrink-0">
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0 flex-shrink-0 mt-1 mr-1">
           <X size={16} />
         </Button>
       </div>

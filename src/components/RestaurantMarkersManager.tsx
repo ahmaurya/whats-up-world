@@ -17,12 +17,14 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
   const { restaurants, fetchRestaurants, loading, error } = useRestaurants();
   const restaurantMarkersRef = useRef<L.Marker[]>([]);
 
-  const addRestaurantMarkers = () => {
+  const createRestaurantMarkers = () => {
     if (!map.current) return;
 
     // Clear existing markers
     restaurantMarkersRef.current.forEach(marker => {
-      map.current!.removeLayer(marker);
+      if (map.current!.hasLayer(marker)) {
+        map.current!.removeLayer(marker);
+      }
     });
     restaurantMarkersRef.current = [];
 
@@ -41,10 +43,6 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
       });
 
       restaurantMarkersRef.current.push(marker);
-      
-      if (showRestaurants) {
-        marker.addTo(map.current!);
-      }
     });
   };
 
@@ -80,23 +78,34 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     };
   }, [showRestaurants, fetchRestaurants]);
 
-  // Update restaurant marker visibility
+  // Update restaurant marker visibility when showRestaurants changes
   useEffect(() => {
     if (!map.current) return;
 
-    restaurantMarkersRef.current.forEach(marker => {
-      if (showRestaurants) {
-        marker.addTo(map.current!);
-      } else {
-        map.current!.removeLayer(marker);
-      }
-    });
+    if (showRestaurants) {
+      restaurantMarkersRef.current.forEach(marker => {
+        if (!map.current!.hasLayer(marker)) {
+          marker.addTo(map.current!);
+        }
+      });
+    } else {
+      restaurantMarkersRef.current.forEach(marker => {
+        if (map.current!.hasLayer(marker)) {
+          map.current!.removeLayer(marker);
+        }
+      });
+    }
   }, [showRestaurants]);
 
-  // Add markers when restaurants data changes
+  // Create markers when restaurants data changes
   useEffect(() => {
-    if (restaurants.length > 0) {
-      addRestaurantMarkers();
+    createRestaurantMarkers();
+    
+    // Add markers to map if showRestaurants is true
+    if (showRestaurants) {
+      restaurantMarkersRef.current.forEach(marker => {
+        marker.addTo(map.current!);
+      });
     }
   }, [restaurants]);
 

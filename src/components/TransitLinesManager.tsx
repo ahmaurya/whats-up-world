@@ -5,19 +5,21 @@ import { transitLines } from '@/utils/transitData';
 import { useMap } from './MapProvider';
 
 interface TransitLinesManagerProps {
-  map: React.MutableRefObject<L.Map | null>;
+  map: React.MutableRefRef<L.Map | null>;
 }
 
 const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
   const { showTransit } = useMap();
   const transitLayersRef = useRef<L.LayerGroup[]>([]);
 
-  const addTransitLines = () => {
+  const createTransitLines = () => {
     if (!map.current) return;
 
     // Clear existing transit layers
     transitLayersRef.current.forEach(layer => {
-      map.current!.removeLayer(layer);
+      if (map.current!.hasLayer(layer)) {
+        map.current!.removeLayer(layer);
+      }
     });
     transitLayersRef.current = [];
 
@@ -32,10 +34,6 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
         
         const layerGroup = L.layerGroup([subwayLine]);
         transitLayersRef.current.push(layerGroup);
-        
-        if (showTransit) {
-          layerGroup.addTo(map.current!);
-        }
       });
 
       // Add bus lines
@@ -49,32 +47,42 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
         
         const layerGroup = L.layerGroup([busLine]);
         transitLayersRef.current.push(layerGroup);
-        
-        if (showTransit) {
-          layerGroup.addTo(map.current!);
-        }
       });
     });
   };
 
-  // Update transit line visibility
+  // Update transit line visibility when showTransit changes
   useEffect(() => {
     if (!map.current) return;
 
-    transitLayersRef.current.forEach(layer => {
-      if (showTransit) {
-        layer.addTo(map.current!);
-      } else {
-        map.current!.removeLayer(layer);
-      }
-    });
+    if (showTransit) {
+      transitLayersRef.current.forEach(layer => {
+        if (!map.current!.hasLayer(layer)) {
+          layer.addTo(map.current!);
+        }
+      });
+    } else {
+      transitLayersRef.current.forEach(layer => {
+        if (map.current!.hasLayer(layer)) {
+          map.current!.removeLayer(layer);
+        }
+      });
+    }
   }, [showTransit]);
 
+  // Initialize transit lines when map is ready
   useEffect(() => {
     if (map.current) {
-      addTransitLines();
+      createTransitLines();
+      
+      // Add lines to map if showTransit is true
+      if (showTransit) {
+        transitLayersRef.current.forEach(layer => {
+          layer.addTo(map.current!);
+        });
+      }
     }
-  }, []);
+  }, [map.current]);
 
   return null;
 };

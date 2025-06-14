@@ -28,15 +28,7 @@ export const useLeaflet = () => {
       const point: [number, number] = [e.latlng.lng, e.latlng.lat];
       addPoint(point);
       
-      // Add marker for clicked point
-      L.marker([e.latlng.lat, e.latlng.lng], {
-        icon: L.divIcon({
-          className: 'custom-marker',
-          html: '<div style="background-color: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>',
-          iconSize: [16, 16],
-          iconAnchor: [8, 8]
-        })
-      }).addTo(map.current!);
+      // Removed the red dot marker creation code
     });
   }, [addPoint]);
 

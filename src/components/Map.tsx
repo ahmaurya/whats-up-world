@@ -28,9 +28,9 @@ const Map = () => {
       <MapControls />
       <TransitToggleTest />
       <TransitDataDebugger />
-      <TransitLinesManager map={map} />
+      <TransitLinesManager map={map.current} />
       <RestaurantMarkersManager 
-        map={map} 
+        map={map.current} 
         onRestaurantClick={handleRestaurantClick} 
       />
       {selectedRestaurant && (

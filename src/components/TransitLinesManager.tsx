@@ -86,7 +86,12 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
       allLines.forEach((line, index) => {
         if (line.coordinates && line.coordinates.length > 1) {
           try {
-            const polyline = L.polyline(line.coordinates as [number, number][], {
+            // Convert coordinates from [longitude, latitude] to [latitude, longitude] for Leaflet
+            const leafletCoordinates: [number, number][] = line.coordinates.map(coord => [coord[1], coord[0]]);
+            
+            console.log(`🔍 Line "${line.name}": Original coords sample: [${line.coordinates[0]}], Converted: [${leafletCoordinates[0]}]`);
+            
+            const polyline = L.polyline(leafletCoordinates, {
               color: line.color || '#666666',
               weight: line.type === 'subway' ? 4 : 3,
               opacity: 0.8,

@@ -24,12 +24,12 @@ const Index = () => {
     <div className="h-screen w-full relative">
       {/* Show user menu only if user is authenticated */}
       {user && (
-        <div className="absolute top-4 left-4 z-[1001]">
+        <div className="absolute top-4 left-4 z-[2001]">
           <UserMenu />
         </div>
       )}
       {/* Show authentication disabled notice */}
-      <div className="absolute top-4 right-4 z-[1001] bg-blue-100 border border-blue-400 text-blue-800 px-3 py-2 rounded text-sm">
+      <div className="absolute top-4 right-4 z-[2001] bg-blue-100 border border-blue-400 text-blue-800 px-3 py-2 rounded text-sm shadow-lg">
         Authentication Disabled - Development Mode
         <Button 
           onClick={() => navigate('/auth')} 

@@ -23,9 +23,25 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     console.log('TransitLinesManager: map.current exists:', !!map.current);
   }, [showTransit]);
 
+  // Function to check if bounds have changed significantly
+  const boundsChanged = useCallback((newBounds: BoundingBox, oldBounds: BoundingBox | null): boolean => {
+    if (!oldBounds) return true;
+    
+    const threshold = 0.01; // Roughly 1km
+    return (
+      Math.abs(newBounds.north - oldBounds.north) > threshold ||
+      Math.abs(newBounds.south - oldBounds.south) > threshold ||
+      Math.abs(newBounds.east - oldBounds.east) > threshold ||
+      Math.abs(newBounds.west - oldBounds.west) > threshold
+    );
+  }, []);
+
   // Debounced function to fetch data
   const fetchDataForCurrentView = useCallback(async () => {
-    if (!map.current || isLoading) return;
+    if (!map.current || isLoading) {
+      console.log('Skipping fetch: map missing or loading in progress');
+      return;
+    }
 
     const bounds = map.current.getBounds();
     const boundsData: BoundingBox = {
@@ -36,12 +52,9 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     };
 
     // Check if bounds have changed significantly
-    if (currentBounds && 
-        Math.abs(currentBounds.north - boundsData.north) < 0.01 &&
-        Math.abs(currentBounds.south - boundsData.south) < 0.01 &&
-        Math.abs(currentBounds.east - boundsData.east) < 0.01 &&
-        Math.abs(currentBounds.west - boundsData.west) < 0.01) {
-      return; // Skip if bounds haven't changed significantly
+    if (!boundsChanged(boundsData, currentBounds)) {
+      console.log('Bounds have not changed significantly, skipping fetch');
+      return;
     }
 
     console.log('Fetching transit data for bounds:', boundsData);
@@ -50,15 +63,45 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
 
     try {
       const data = await fetchTransitData(boundsData);
-      setTransitData(data);
       console.log('Transit data fetched successfully:', data);
+      
+      // Check if we actually got data
+      const totalLines = Object.values(data).reduce((sum, lines) => sum + lines.length, 0);
+      console.log('Total transit lines received:', totalLines);
+      
+      setTransitData(data);
     } catch (error) {
       console.error('Failed to fetch transit data:', error);
       // Don't clear existing data on error, keep showing what we have
     } finally {
       setIsLoading(false);
     }
-  }, [map, isLoading, currentBounds]);
+  }, [map, isLoading, currentBounds, boundsChanged]);
+
+  // Helper functions for styling
+  const getDefaultColor = (type: keyof TransitData): string => {
+    const colors = {
+      subway: '#0066CC',     // Seattle Link Light Rail blue
+      bus: '#00AA44',        // King County Metro green
+      tram: '#FF6600',       // Streetcar orange
+      rail: '#8B5CF6'        // Purple for other rail
+    };
+    return colors[type];
+  };
+
+  const getLineWeight = (type: keyof TransitData): number => {
+    return type === 'subway' || type === 'rail' ? 5 : 3;
+  };
+
+  const createTooltipContent = (line: TransitLine, type: string): string => {
+    let content = `<div style="font-size: 14px;">`;
+    content += `<strong>${line.name}</strong><br/>`;
+    content += `<span style="color: #666;">Type: ${type.charAt(0).toUpperCase() + type.slice(1)}</span>`;
+    if (line.operator) content += `<br/><span style="color: #666;">Operator: ${line.operator}</span>`;
+    if (line.ref) content += `<br/><span style="color: #666;">Route: ${line.ref}</span>`;
+    content += `</div>`;
+    return content;
+  };
 
   // Create transit layer from fetched data
   const createTransitLayer = useCallback((data: TransitData): L.LayerGroup => {
@@ -70,7 +113,10 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     Object.entries(data).forEach(([type, lines]) => {
       console.log(`Processing ${type} lines:`, lines.length);
       lines.forEach((line: TransitLine) => {
-        if (line.coordinates.length < 2) return;
+        if (line.coordinates.length < 2) {
+          console.log(`Skipping line ${line.name} - insufficient coordinates`);
+          return;
+        }
 
         // Convert coordinates to Leaflet LatLng format
         const latLngs = line.coordinates.map(coord => [coord[1], coord[0]] as [number, number]);
@@ -85,7 +131,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
 
         // Add dash pattern for buses and trams
         if (type === 'bus' || type === 'tram') {
-          polylineOptions.dashArray = '5, 5';
+          polylineOptions.dashArray = '8, 4';
         }
 
         const polyline = L.polyline(latLngs, polylineOptions);
@@ -96,40 +142,19 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
           permanent: false,
           direction: 'top',
           className: 'transit-tooltip',
-          opacity: 0.9
+          opacity: 0.9,
+          offset: [0, -10]
         });
         
         transitLayer.addLayer(polyline);
         totalLinesAdded++;
+        console.log(`Added ${type} line: ${line.name}`);
       });
     });
 
     console.log('Transit layer created with', totalLinesAdded, 'lines');
     return transitLayer;
   }, []);
-
-  // Helper functions
-  const getDefaultColor = (type: keyof TransitData): string => {
-    const colors = {
-      subway: '#3b82f6',
-      bus: '#10b981',
-      tram: '#f59e0b',
-      rail: '#8b5cf6'
-    };
-    return colors[type];
-  };
-
-  const getLineWeight = (type: keyof TransitData): number => {
-    return type === 'subway' || type === 'rail' ? 4 : 3;
-  };
-
-  const createTooltipContent = (line: TransitLine, type: string): string => {
-    let content = `<strong>${line.name}</strong><br/>`;
-    content += `Type: ${type.charAt(0).toUpperCase() + type.slice(1)}`;
-    if (line.operator) content += `<br/>Operator: ${line.operator}`;
-    if (line.ref) content += `<br/>Reference: ${line.ref}`;
-    return content;
-  };
 
   // Update transit layer when data changes
   useEffect(() => {
@@ -138,7 +163,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     console.log('- showTransit:', showTransit);
     console.log('- map.current exists:', !!map.current);
 
-    if (!map.current || !transitData) return;
+    if (!map.current) return;
 
     // Remove existing layer
     if (transitLayerRef.current) {
@@ -147,18 +172,26 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
         map.current.removeLayer(transitLayerRef.current);
       }
       transitLayerRef.current.clearLayers();
+      transitLayerRef.current = null;
     }
 
-    // Create new layer with fetched data
-    transitLayerRef.current = createTransitLayer(transitData);
-    console.log('New transit layer created');
+    // Create new layer if we have data
+    if (transitData) {
+      const totalLines = Object.values(transitData).reduce((sum, lines) => sum + lines.length, 0);
+      console.log('Creating new transit layer with', totalLines, 'total lines');
+      
+      if (totalLines > 0) {
+        transitLayerRef.current = createTransitLayer(transitData);
+        console.log('New transit layer created');
 
-    // Add layer if transit should be shown
-    if (showTransit && transitLayerRef.current) {
-      console.log('Adding transit layer to map');
-      transitLayerRef.current.addTo(map.current);
-    } else {
-      console.log('Not adding transit layer (showTransit is false)');
+        // Add layer if transit should be shown
+        if (showTransit && transitLayerRef.current) {
+          console.log('Adding transit layer to map');
+          transitLayerRef.current.addTo(map.current);
+        }
+      } else {
+        console.log('No transit lines to display');
+      }
     }
   }, [transitData, createTransitLayer, showTransit, map]);
 
@@ -200,7 +233,8 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     const handleMoveEnd = () => {
       const zoom = map.current?.getZoom();
       console.log('Map moved, zoom level:', zoom);
-      // Only fetch data at reasonable zoom levels
+      
+      // Fetch data at zoom levels 11 and higher for Seattle area
       if (zoom && zoom >= 11) {
         // Debounce the fetch to avoid too many requests
         clearTimeout(debounceTimeout);
@@ -217,7 +251,8 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     const zoom = map.current.getZoom();
     console.log('Initial zoom level:', zoom);
     if (zoom >= 11) {
-      setTimeout(fetchDataForCurrentView, 500); // Small delay for initial load
+      // Immediate fetch for initial load
+      setTimeout(fetchDataForCurrentView, 500);
     }
 
     // Listen for map movements

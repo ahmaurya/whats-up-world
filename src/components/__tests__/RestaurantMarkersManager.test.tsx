@@ -1,4 +1,3 @@
-
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import RestaurantMarkersManager from '../RestaurantMarkersManager';
@@ -218,6 +217,28 @@ describe('RestaurantMarkersManager - Initial Load Regression Tests', () => {
         5000,
         true,
         true
+      );
+    }, { timeout: 2000 });
+  });
+
+  it('should ensure zoom level does not prevent initial restaurant loading', async () => {
+    // Test with extremely low zoom level that previously would block loading
+    (mockMap.getZoom as vi.Mock).mockReturnValue(5);
+
+    render(
+      <RestaurantMarkersManager 
+        map={mockMap} 
+        onRestaurantClick={mockOnRestaurantClick} 
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockFetchRestaurants).toHaveBeenCalledWith(
+        47.6062,
+        -122.3321,
+        5000,
+        true,
+        false
       );
     }, { timeout: 2000 });
   });

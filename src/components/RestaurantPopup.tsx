@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { ExternalLink } from 'lucide-react';
@@ -13,7 +14,7 @@ const RestaurantPopup: React.FC<RestaurantPopupProps> = ({ restaurant, onClose }
     <Card className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-6 z-20 bg-white shadow-lg max-w-sm w-full mx-4 min-h-[250px] relative">
       
       <div className="mb-4">
-        <h3 className="text-lg font-bold pr-10">{restaurant.name}</h3>
+        <h3 className="text-lg font-bold">{restaurant.name}</h3>
       </div>
       
       <div className="space-y-3">

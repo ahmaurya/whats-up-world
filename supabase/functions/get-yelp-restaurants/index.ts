@@ -18,8 +18,8 @@ const validateRadius = (radius: number): void => {
   if (typeof radius !== 'number') {
     throw new Error('Radius must be a number');
   }
-  if (radius < 100 || radius > 40000) {
-    throw new Error('Radius must be between 100 and 40000 meters');
+  if (radius < 100 || radius > 50000) {
+    throw new Error('Radius must be between 100 and 50000 meters');
   }
 };
 
@@ -109,9 +109,9 @@ serve(async (req) => {
     validateCoordinates(lat, lng);
     validateRadius(radius);
 
-    const apiKey = Deno.env.get('YELP_API_KEY');
+    const apiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
     if (!apiKey) {
-      console.error('Yelp API key not configured');
+      console.error('Google Places API key not configured');
       return new Response(
         JSON.stringify({ error: 'Service configuration error' }),
         { 
@@ -121,13 +121,14 @@ serve(async (req) => {
       );
     }
 
-    // Create secure API request to Yelp
-    const url = new URL('https://api.yelp.com/v3/businesses/search');
-    url.searchParams.set('latitude', lat.toString());
-    url.searchParams.set('longitude', lng.toString());
-    url.searchParams.set('radius', Math.min(radius, 40000).toString()); // Yelp max radius is 40km
-    url.searchParams.set('categories', 'restaurants');
-    url.searchParams.set('limit', '50');
+    console.log(`Fetching restaurants from Google Places near ${lat}, ${lng} with radius ${radius}m`);
+
+    // Create secure API request to Google Places
+    const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json');
+    url.searchParams.set('location', `${lat},${lng}`);
+    url.searchParams.set('radius', Math.min(radius, 50000).toString()); // Google Places max radius is 50km
+    url.searchParams.set('type', 'restaurant');
+    url.searchParams.set('key', apiKey);
 
     // Make API request with timeout
     const controller = new AbortController();
@@ -136,7 +137,6 @@ serve(async (req) => {
     const response = await fetch(url.toString(), {
       signal: controller.signal,
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'User-Agent': 'Maps App/1.0'
       }
     });
@@ -144,7 +144,7 @@ serve(async (req) => {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.error(`Yelp API error: ${response.status}`);
+      console.error(`Google Places API error: ${response.status}`);
       return new Response(
         JSON.stringify({ error: 'External service error' }),
         { 
@@ -156,19 +156,34 @@ serve(async (req) => {
 
     const data = await response.json();
 
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      console.error('Google Places API error:', data.status, data.error_message);
+      return new Response(
+        JSON.stringify({ error: 'External service error' }),
+        { 
+          status: 502, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     // Sanitize and transform response data
-    const restaurants = (data.businesses || []).map((business: any, index: number) => ({
+    const restaurants = (data.results || []).map((place: any, index: number) => ({
       id: index + 1,
-      name: String(business.name || 'Unknown Restaurant').slice(0, 100),
+      name: String(place.name || 'Unknown Restaurant').slice(0, 100),
       coordinates: [
-        Number(business.coordinates?.longitude || 0),
-        Number(business.coordinates?.latitude || 0)
+        Number(place.geometry?.location?.lng || 0),
+        Number(place.geometry?.location?.lat || 0)
       ] as [number, number],
-      rating: Number(business.rating || 0),
-      reviews: Number(business.review_count || 0),
-      cuisine: String((business.categories?.[0]?.title || 'restaurant')).slice(0, 50),
-      description: String(business.location?.display_address?.join(', ') || 'No description available').slice(0, 200)
+      rating: Number(place.rating || 0),
+      reviews: Number(place.user_ratings_total || 0),
+      cuisine: String((place.types?.find((type: string) => 
+        !['establishment', 'point_of_interest', 'food', 'restaurant'].includes(type)
+      ) || 'restaurant')).replace(/_/g, ' ').slice(0, 50),
+      description: String(place.vicinity || 'No description available').slice(0, 200)
     }));
+
+    console.log(`Found ${restaurants.length} restaurants from Google Places`);
 
     return new Response(
       JSON.stringify({ restaurants }),

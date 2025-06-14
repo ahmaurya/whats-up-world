@@ -23,7 +23,7 @@ export const useRestaurants = () => {
     setError(null);
 
     try {
-      console.log(`Fetching restaurants from Yelp near ${lat}, ${lng}`);
+      console.log(`Fetching restaurants from Google Places near ${lat}, ${lng}`);
       
       const { data, error: functionError } = await supabase.functions.invoke('get-yelp-restaurants', {
         body: { lat, lng, radius }
@@ -44,11 +44,11 @@ export const useRestaurants = () => {
       }));
 
       setRestaurants(processedRestaurants);
-      console.log(`Loaded ${processedRestaurants.length} restaurants from Yelp`);
+      console.log(`Loaded ${processedRestaurants.length} restaurants from Google Places`);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch restaurants';
-      console.error('Error fetching restaurants from Yelp:', errorMessage);
+      console.error('Error fetching restaurants from Google Places:', errorMessage);
       setError(errorMessage);
       setRestaurants([]);
     } finally {

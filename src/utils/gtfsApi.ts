@@ -1,114 +1,35 @@
 
 import { TransitLine, TransitData, BoundingBox } from '@/types/transit';
 
-// GTFS Real-time API endpoints for Seattle area
-const KING_COUNTY_METRO_API = 'https://s3.amazonaws.com/kcm-alerts-realtime-prod/gtfsrt-vehiclepositions';
-const SOUND_TRANSIT_API = 'https://s3.amazonaws.com/kingcounty-metro-gtfs/gtfs.zip';
+// King County Metro GTFS Real-time API endpoints
+const KING_COUNTY_METRO_GTFS_STATIC = 'https://www.soundtransit.org/GTFS/google_transit.zip';
+const KING_COUNTY_METRO_VEHICLE_POSITIONS = 'https://s3.amazonaws.com/kcm-alerts-realtime-prod/gtfsrt-vehiclepositions';
+const KING_COUNTY_METRO_TRIP_UPDATES = 'https://s3.amazonaws.com/kcm-alerts-realtime-prod/gtfsrt-tripupdates';
 
-// Static route data for major Seattle transit lines
-const SEATTLE_TRANSIT_ROUTES = {
-  lightRail: [
-    {
-      id: 'link-1-line',
-      name: '1 Line (Northgate to Angle Lake)',
-      type: 'subway' as const,
-      color: '#0066CC',
-      operator: 'Sound Transit',
-      coordinates: [
-        [-122.334437, 47.761689], // Northgate
-        [-122.341614, 47.734150], // Roosevelt
-        [-122.317375, 47.669952], // U District
-        [-122.304688, 47.661378], // University of Washington
-        [-122.303886, 47.649648], // Capitol Hill
-        [-122.320328, 47.614848], // Westlake
-        [-122.337189, 47.609722], // University Street
-        [-122.327774, 47.602038], // Pioneer Square
-        [-122.329597, 47.598445], // International District/Chinatown
-        [-122.315102, 47.571415], // Stadium
-        [-122.315788, 47.568710], // SODO
-        [-122.327538, 47.540790], // Beacon Hill
-        [-122.281471, 47.522098], // Mount Baker
-        [-122.269206, 47.515626], // Columbia City
-        [-122.257919, 47.515023], // Othello
-        [-122.257347, 47.508990], // Rainier Beach
-        [-122.296564, 47.471671], // Tukwila International Boulevard
-        [-122.347160, 47.460710], // SeaTac/Airport
-        [-122.298077, 47.422303]  // Angle Lake
-      ] as [number, number][]
-    }
-  ],
-  busRoutes: [
-    {
-      id: 'route-44',
-      name: 'Route 44 (Ballard to University District)',
-      type: 'bus' as const,
-      color: '#00AA44',
-      operator: 'King County Metro',
-      coordinates: [
-        [-122.383736, 47.668207], // Ballard
-        [-122.375031, 47.663867],
-        [-122.365112, 47.661972],
-        [-122.354279, 47.660435],
-        [-122.342987, 47.659447],
-        [-122.331982, 47.659206],
-        [-122.319336, 47.659847],
-        [-122.307816, 47.661490],
-        [-122.305031, 47.665859]  // University District
-      ] as [number, number][]
-    },
-    {
-      id: 'route-8',
-      name: 'Route 8 (Capitol Hill to South Lake Union)',
-      type: 'bus' as const,
-      color: '#00AA44',
-      operator: 'King County Metro',
-      coordinates: [
-        [-122.304688, 47.661378], // Capitol Hill
-        [-122.315788, 47.652428],
-        [-122.324905, 47.641428],
-        [-122.331543, 47.628428],
-        [-122.337189, 47.609722], // Downtown
-        [-122.342987, 47.620859], // South Lake Union
-        [-122.347755, 47.627932]
-      ] as [number, number][]
-    }
-  ],
-  streetcar: [
-    {
-      id: 'first-hill-streetcar',
-      name: 'First Hill Streetcar',
-      type: 'tram' as const,
-      color: '#FF6600',
-      operator: 'Seattle Streetcar',
-      coordinates: [
-        [-122.330017, 47.607832], // Pioneer Square
-        [-122.324219, 47.608520],
-        [-122.318420, 47.609722],
-        [-122.314453, 47.612524],
-        [-122.311668, 47.616326],
-        [-122.309570, 47.620928],
-        [-122.307816, 47.625530],
-        [-122.306061, 47.630132]  // Capitol Hill
-      ] as [number, number][]
-    }
-  ]
-};
+// Overpass API for Seattle area transit infrastructure
+const OVERPASS_API_URL = 'https://overpass-api.de/api/interpreter';
 
-// Cache for static route data
+// Cache for transit data
 const cache = new Map<string, { data: TransitData; timestamp: number }>();
-const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes for static data
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes for real-time data
 
 export const fetchTransitData = async (bounds: BoundingBox): Promise<TransitData> => {
-  const cacheKey = `seattle-transit-${bounds.south.toFixed(3)},${bounds.west.toFixed(3)},${bounds.north.toFixed(3)},${bounds.east.toFixed(3)}`;
+  const cacheKey = `king-county-metro-${bounds.south.toFixed(3)},${bounds.west.toFixed(3)},${bounds.north.toFixed(3)},${bounds.east.toFixed(3)}`;
   
   // Check cache first
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    console.log('Using cached Seattle transit data');
+    console.log('🚌 Using cached King County Metro transit data');
     return cached.data;
   }
 
-  console.log('Fetching Seattle transit data for bounds:', bounds);
+  console.log('🚌 Fetching real King County Metro transit data for bounds:', bounds);
+  console.log('📍 Bounds:', {
+    north: bounds.north,
+    south: bounds.south,
+    east: bounds.east,
+    west: bounds.west
+  });
 
   try {
     // Initialize transit data structure
@@ -119,66 +40,144 @@ export const fetchTransitData = async (bounds: BoundingBox): Promise<TransitData
       rail: []
     };
 
-    console.log('Processing Light Rail routes...');
-    // Process Light Rail
-    SEATTLE_TRANSIT_ROUTES.lightRail.forEach(route => {
-      console.log(`Checking light rail route: ${route.name}`);
-      console.log(`Route coordinates sample:`, route.coordinates.slice(0, 3));
-      
-      if (routeIntersectsBounds(route.coordinates, bounds)) {
-        transitData.subway.push({
-          id: route.id,
-          name: route.name,
-          type: route.type,
-          coordinates: route.coordinates,
-          color: route.color,
-          operator: route.operator
-        });
-        console.log(`✓ Added light rail: ${route.name} with ${route.coordinates.length} coordinates`);
-      } else {
-        console.log(`✗ Light rail ${route.name} does not intersect bounds`);
+    // Fetch transit routes from Overpass API for Seattle area
+    const overpassQuery = `
+      [out:json][timeout:25];
+      (
+        relation["route"="subway"]["network"~"Sound Transit|Link Light Rail"]["public_transport"="route"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
+        relation["route"="light_rail"]["network"~"Sound Transit|Link Light Rail"]["public_transport"="route"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
+        relation["route"="bus"]["network"~"King County Metro|Metro Transit"]["public_transport"="route"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
+        relation["route"="tram"]["network"~"Seattle Streetcar"]["public_transport"="route"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
+        relation["route"="train"]["network"~"Sound Transit"]["public_transport"="route"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
+      );
+      (._;>;);
+      out geom;
+    `;
+
+    console.log('🌐 Querying Overpass API for Seattle transit routes...');
+    console.log('📋 Overpass Query:', overpassQuery);
+
+    const overpassResponse = await fetch(OVERPASS_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `data=${encodeURIComponent(overpassQuery)}`
+    });
+
+    if (!overpassResponse.ok) {
+      throw new Error(`Overpass API request failed: ${overpassResponse.status}`);
+    }
+
+    const overpassData = await overpassResponse.json();
+    console.log('✅ Overpass API Response received');
+    console.log('📊 Raw Overpass Data:', overpassData);
+    
+    if (!overpassData.elements || overpassData.elements.length === 0) {
+      console.log('⚠️ No transit elements found in Overpass response');
+      return transitData;
+    }
+
+    // Process relations (transit routes)
+    const relations = overpassData.elements.filter((el: any) => el.type === 'relation');
+    console.log(`🔍 Found ${relations.length} transit relations`);
+
+    // Group nodes and ways by ID for easy lookup
+    const nodes = new Map();
+    const ways = new Map();
+    
+    overpassData.elements.forEach((el: any) => {
+      if (el.type === 'node') {
+        nodes.set(el.id, el);
+      } else if (el.type === 'way') {
+        ways.set(el.id, el);
       }
     });
 
-    console.log('Processing Bus routes...');
-    // Process Bus Routes
-    SEATTLE_TRANSIT_ROUTES.busRoutes.forEach(route => {
-      console.log(`Checking bus route: ${route.name}`);
-      console.log(`Route coordinates sample:`, route.coordinates.slice(0, 3));
-      
-      if (routeIntersectsBounds(route.coordinates, bounds)) {
-        transitData.bus.push({
-          id: route.id,
-          name: route.name,
-          type: route.type,
-          coordinates: route.coordinates,
-          color: route.color,
-          operator: route.operator
-        });
-        console.log(`✓ Added bus route: ${route.name} with ${route.coordinates.length} coordinates`);
-      } else {
-        console.log(`✗ Bus route ${route.name} does not intersect bounds`);
-      }
-    });
+    console.log(`📍 Loaded ${nodes.size} nodes and ${ways.size} ways`);
 
-    console.log('Processing Streetcar routes...');
-    // Process Streetcar
-    SEATTLE_TRANSIT_ROUTES.streetcar.forEach(route => {
-      console.log(`Checking streetcar route: ${route.name}`);
-      console.log(`Route coordinates sample:`, route.coordinates.slice(0, 3));
+    relations.forEach((relation: any, index: number) => {
+      console.log(`\n🚌 Processing relation ${index + 1}/${relations.length}:`, relation.tags?.name || `ID: ${relation.id}`);
+      console.log('🏷️ Tags:', relation.tags);
+
+      if (!relation.tags || !relation.tags.route) {
+        console.log('❌ Skipping relation without route tag');
+        return;
+      }
+
+      const routeType = relation.tags.route;
+      const routeName = relation.tags.name || relation.tags.ref || `Route ${relation.id}`;
+      const operator = relation.tags.operator || relation.tags.network || 'Unknown';
+      const color = relation.tags.colour || getDefaultColor(routeType);
+
+      console.log(`📋 Route Details:`, {
+        type: routeType,
+        name: routeName,
+        operator: operator,
+        color: color
+      });
+
+      // Extract coordinates from ways in the relation
+      const coordinates: [number, number][] = [];
       
-      if (routeIntersectsBounds(route.coordinates, bounds)) {
-        transitData.tram.push({
-          id: route.id,
-          name: route.name,
-          type: route.type,
-          coordinates: route.coordinates,
-          color: route.color,
-          operator: route.operator
+      if (relation.members) {
+        console.log(`🔗 Processing ${relation.members.length} members`);
+        
+        relation.members.forEach((member: any, memberIndex: number) => {
+          if (member.type === 'way') {
+            const way = ways.get(member.ref);
+            if (way && way.geometry) {
+              console.log(`  📍 Way ${memberIndex + 1}: ${way.geometry.length} coordinates`);
+              way.geometry.forEach((coord: any) => {
+                coordinates.push([coord.lon, coord.lat]);
+              });
+            } else if (way && way.nodes) {
+              console.log(`  📍 Way ${memberIndex + 1}: ${way.nodes.length} node references`);
+              way.nodes.forEach((nodeId: number) => {
+                const node = nodes.get(nodeId);
+                if (node) {
+                  coordinates.push([node.lon, node.lat]);
+                }
+              });
+            }
+          }
         });
-        console.log(`✓ Added streetcar: ${route.name} with ${route.coordinates.length} coordinates`);
+      }
+
+      console.log(`📍 Total coordinates extracted: ${coordinates.length}`);
+
+      if (coordinates.length > 0) {
+        const transitLine: TransitLine = {
+          id: `overpass-${relation.id}`,
+          name: routeName,
+          type: mapRouteType(routeType),
+          coordinates: coordinates,
+          color: color,
+          operator: operator,
+          ref: relation.tags.ref
+        };
+
+        // Add to appropriate category
+        switch (transitLine.type) {
+          case 'subway':
+            transitData.subway.push(transitLine);
+            console.log(`✅ Added to subway: ${routeName}`);
+            break;
+          case 'bus':
+            transitData.bus.push(transitLine);
+            console.log(`✅ Added to bus: ${routeName}`);
+            break;
+          case 'tram':
+            transitData.tram.push(transitLine);
+            console.log(`✅ Added to tram: ${routeName}`);
+            break;
+          case 'rail':
+            transitData.rail.push(transitLine);
+            console.log(`✅ Added to rail: ${routeName}`);
+            break;
+        }
       } else {
-        console.log(`✗ Streetcar ${route.name} does not intersect bounds`);
+        console.log(`❌ No coordinates found for ${routeName}`);
       }
     });
 
@@ -186,18 +185,70 @@ export const fetchTransitData = async (bounds: BoundingBox): Promise<TransitData
       subway: transitData.subway.length,
       bus: transitData.bus.length,
       tram: transitData.tram.length,
-      rail: transitData.rail.length
+      rail: transitData.rail.length,
+      total: transitData.subway.length + transitData.bus.length + transitData.tram.length + transitData.rail.length
     };
     
-    console.log('Seattle transit data processing complete. Summary:', summary);
-    console.log('Bounds used for filtering:', bounds);
+    console.log('\n🎯 KING COUNTY METRO TRANSIT DATA SUMMARY:');
+    console.log('==========================================');
+    console.log(`📊 Light Rail/Subway Lines: ${summary.subway}`);
+    console.log(`📊 Bus Routes: ${summary.bus}`);
+    console.log(`📊 Streetcar/Tram Lines: ${summary.tram}`);
+    console.log(`📊 Commuter Rail Lines: ${summary.rail}`);
+    console.log(`📊 Total Transit Lines: ${summary.total}`);
+    console.log('==========================================');
+
+    // Log detailed information for each category
+    if (transitData.subway.length > 0) {
+      console.log('\n🚇 LIGHT RAIL/SUBWAY LINES:');
+      transitData.subway.forEach((line, i) => {
+        console.log(`${i + 1}. ${line.name} (${line.operator})`);
+        console.log(`   Color: ${line.color}, Coordinates: ${line.coordinates.length}`);
+      });
+    }
+
+    if (transitData.bus.length > 0) {
+      console.log('\n🚌 BUS ROUTES:');
+      transitData.bus.forEach((line, i) => {
+        console.log(`${i + 1}. ${line.name} (${line.operator})`);
+        console.log(`   Color: ${line.color}, Coordinates: ${line.coordinates.length}`);
+      });
+    }
+
+    if (transitData.tram.length > 0) {
+      console.log('\n🚋 STREETCAR/TRAM LINES:');
+      transitData.tram.forEach((line, i) => {
+        console.log(`${i + 1}. ${line.name} (${line.operator})`);
+        console.log(`   Color: ${line.color}, Coordinates: ${line.coordinates.length}`);
+      });
+    }
+
+    if (transitData.rail.length > 0) {
+      console.log('\n🚂 COMMUTER RAIL LINES:');
+      transitData.rail.forEach((line, i) => {
+        console.log(`${i + 1}. ${line.name} (${line.operator})`);
+        console.log(`   Color: ${line.color}, Coordinates: ${line.coordinates.length}`);
+      });
+    }
+
+    console.log('\n🗺️ MAP BOUNDS USED:');
+    console.log(`   North: ${bounds.north}`);
+    console.log(`   South: ${bounds.south}`);
+    console.log(`   East: ${bounds.east}`);
+    console.log(`   West: ${bounds.west}`);
+    console.log('==========================================');
 
     // Cache the data
     cache.set(cacheKey, { data: transitData, timestamp: Date.now() });
     
     return transitData;
   } catch (error) {
-    console.error('Error processing Seattle transit data:', error);
+    console.error('❌ Error fetching King County Metro transit data:', error);
+    console.error('📊 Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
     return {
       subway: [],
       bus: [],
@@ -207,30 +258,46 @@ export const fetchTransitData = async (bounds: BoundingBox): Promise<TransitData
   }
 };
 
-// Helper function to check if a route intersects with the given bounds
-const routeIntersectsBounds = (coordinates: [number, number][], bounds: BoundingBox): boolean => {
-  console.log(`Checking route intersection with bounds: ${JSON.stringify(bounds)}`);
-  console.log(`Route has ${coordinates.length} coordinates`);
-  
-  const intersects = coordinates.some(([lng, lat]) => {
-    const withinBounds = lng >= bounds.west && 
-                        lng <= bounds.east && 
-                        lat >= bounds.south && 
-                        lat <= bounds.north;
-    
-    if (withinBounds) {
-      console.log(`Found intersection at coordinate: [${lng}, ${lat}]`);
-    }
-    
-    return withinBounds;
-  });
-  
-  console.log(`Route intersection result: ${intersects}`);
-  return intersects;
+// Helper function to map Overpass route types to our transit types
+const mapRouteType = (routeType: string): 'subway' | 'bus' | 'tram' | 'rail' => {
+  switch (routeType.toLowerCase()) {
+    case 'subway':
+    case 'light_rail':
+      return 'subway';
+    case 'bus':
+      return 'bus';
+    case 'tram':
+    case 'streetcar':
+      return 'tram';
+    case 'train':
+    case 'rail':
+      return 'rail';
+    default:
+      return 'bus'; // Default fallback
+  }
+};
+
+// Helper function to get default colors for route types
+const getDefaultColor = (routeType: string): string => {
+  switch (routeType.toLowerCase()) {
+    case 'subway':
+    case 'light_rail':
+      return '#0066CC'; // Blue for light rail
+    case 'bus':
+      return '#00AA44'; // Green for buses
+    case 'tram':
+    case 'streetcar':
+      return '#FF6600'; // Orange for streetcars
+    case 'train':
+    case 'rail':
+      return '#800080'; // Purple for commuter rail
+    default:
+      return '#666666'; // Gray fallback
+  }
 };
 
 // Clear cache function
 export const clearTransitCache = () => {
   cache.clear();
-  console.log('Seattle transit data cache cleared');
+  console.log('🧹 King County Metro transit data cache cleared');
 };

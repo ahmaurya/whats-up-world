@@ -13,13 +13,19 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
   const { showTransit } = useMap();
   const transitLayerRef = useRef<L.LayerGroup | null>(null);
   const [transitData, setTransitData] = useState<TransitData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch transit data when component mounts
+  // Fetch transit data when component mounts or map changes
   useEffect(() => {
     const loadTransitData = async () => {
-      if (!map) return;
+      if (!map) {
+        console.log('🗺️ Map not ready, skipping transit data load');
+        return;
+      }
       
-      console.log('🚇 TransitLinesManager: Loading Seattle transit data...');
+      setIsLoading(true);
+      console.log('🚌 Loading King County Metro real-time transit data...');
+      
       const bounds = map.getBounds();
       const boundingBox: BoundingBox = {
         north: bounds.getNorth(),
@@ -28,136 +34,119 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
         west: bounds.getWest()
       };
 
+      console.log('📍 Current map bounds:', boundingBox);
+
       try {
         const data = await fetchTransitData(boundingBox);
-        console.log('🚇 Seattle Transit Data Successfully Loaded!');
-        console.log('==========================================');
-        console.log('📊 SEATTLE TRANSIT DATA SUMMARY:');
-        console.log(`- Light Rail/Subway Lines: ${data.subway.length}`);
-        console.log(`- Bus Routes: ${data.bus.length}`);
-        console.log(`- Streetcar/Tram Lines: ${data.tram.length}`);
-        console.log(`- Commuter Rail Lines: ${data.rail.length}`);
-        console.log(`- Total Transit Lines: ${data.subway.length + data.bus.length + data.tram.length + data.rail.length}`);
-        console.log('==========================================');
-        
-        console.log('🚇 DETAILED TRANSIT LINE DATA:');
-        
-        if (data.subway.length > 0) {
-          console.log('\n📍 LIGHT RAIL/SUBWAY LINES:');
-          data.subway.forEach((line, index) => {
-            console.log(`${index + 1}. ${line.name}`);
-            console.log(`   - Operator: ${line.operator}`);
-            console.log(`   - Color: ${line.color}`);
-            console.log(`   - Coordinates: ${line.coordinates.length} points`);
-            console.log(`   - Route: ${line.coordinates[0]} → ${line.coordinates[line.coordinates.length - 1]}`);
-            console.log('   - Full coordinate data:', line.coordinates);
-          });
-        }
-        
-        if (data.bus.length > 0) {
-          console.log('\n🚌 BUS ROUTES:');
-          data.bus.forEach((line, index) => {
-            console.log(`${index + 1}. ${line.name}`);
-            console.log(`   - Operator: ${line.operator}`);
-            console.log(`   - Color: ${line.color}`);
-            console.log(`   - Coordinates: ${line.coordinates.length} points`);
-            console.log(`   - Route: ${line.coordinates[0]} → ${line.coordinates[line.coordinates.length - 1]}`);
-            console.log('   - Full coordinate data:', line.coordinates);
-          });
-        }
-        
-        if (data.tram.length > 0) {
-          console.log('\n🚋 STREETCAR/TRAM LINES:');
-          data.tram.forEach((line, index) => {
-            console.log(`${index + 1}. ${line.name}`);
-            console.log(`   - Operator: ${line.operator}`);
-            console.log(`   - Color: ${line.color}`);
-            console.log(`   - Coordinates: ${line.coordinates.length} points`);
-            console.log(`   - Route: ${line.coordinates[0]} → ${line.coordinates[line.coordinates.length - 1]}`);
-            console.log('   - Full coordinate data:', line.coordinates);
-          });
-        }
-        
-        if (data.rail.length > 0) {
-          console.log('\n🚂 COMMUTER RAIL LINES:');
-          data.rail.forEach((line, index) => {
-            console.log(`${index + 1}. ${line.name}`);
-            console.log(`   - Operator: ${line.operator}`);
-            console.log(`   - Color: ${line.color}`);
-            console.log(`   - Coordinates: ${line.coordinates.length} points`);
-            console.log(`   - Route: ${line.coordinates[0]} → ${line.coordinates[line.coordinates.length - 1]}`);
-            console.log('   - Full coordinate data:', line.coordinates);
-          });
-        }
-        
-        console.log('==========================================');
-        console.log('📍 MAP BOUNDS USED FOR FILTERING:');
-        console.log(`   North: ${boundingBox.north}`);
-        console.log(`   South: ${boundingBox.south}`);
-        console.log(`   East: ${boundingBox.east}`);
-        console.log(`   West: ${boundingBox.west}`);
-        console.log('==========================================');
-        
+        console.log('✅ King County Metro Transit Data Loaded Successfully!');
         setTransitData(data);
       } catch (error) {
-        console.error('❌ TransitLinesManager: Error loading Seattle transit data:', error);
+        console.error('❌ Error loading King County Metro transit data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     loadTransitData();
   }, [map]);
 
-  // Handle transit visibility toggle
+  // Handle transit visibility toggle and layer management
   useEffect(() => {
-    if (!map) return;
+    if (!map) {
+      console.log('🗺️ Map not available for transit layer management');
+      return;
+    }
 
+    // Initialize transit layer if not exists
     if (!transitLayerRef.current) {
       transitLayerRef.current = L.layerGroup().addTo(map);
-      console.log('🗺️ Created transit layer group and added to map');
+      console.log('🗺️ Created new transit layer group');
     }
 
     const transitLayer = transitLayerRef.current;
+    console.log(`🔄 Transit visibility toggle: ${showTransit ? 'SHOWING' : 'HIDING'} transit lines`);
 
-    if (showTransit && transitData) {
-      console.log('🚇 Adding Seattle transit lines to map...');
+    if (showTransit && transitData && !isLoading) {
+      console.log('🚌 Adding King County Metro transit lines to map...');
       
       // Clear existing lines
       transitLayer.clearLayers();
 
-      // Add all transit lines
-      const allLines = [...transitData.subway, ...transitData.bus, ...transitData.tram, ...transitData.rail];
-      console.log(`📍 Adding ${allLines.length} transit lines to map`);
+      // Combine all transit lines
+      const allLines = [
+        ...transitData.subway,
+        ...transitData.bus,
+        ...transitData.tram,
+        ...transitData.rail
+      ];
       
+      console.log(`📊 Processing ${allLines.length} total transit lines`);
+      
+      let addedCount = 0;
       allLines.forEach((line, index) => {
-        if (line.coordinates && line.coordinates.length > 0) {
-          const polyline = L.polyline(line.coordinates as [number, number][], {
-            color: line.color,
-            weight: 3,
-            opacity: 0.8
-          }).bindPopup(`<strong>${line.name}</strong><br/>Operator: ${line.operator}`);
-          
-          transitLayer.addLayer(polyline);
-          console.log(`✅ Added ${line.type}: ${line.name} (${line.coordinates.length} points)`);
+        if (line.coordinates && line.coordinates.length > 1) {
+          try {
+            const polyline = L.polyline(line.coordinates as [number, number][], {
+              color: line.color || '#666666',
+              weight: line.type === 'subway' ? 4 : 3,
+              opacity: 0.8,
+              dashArray: line.type === 'bus' ? '5, 5' : undefined
+            }).bindPopup(`
+              <div class="transit-popup">
+                <strong>${line.name}</strong><br/>
+                <em>${line.operator || 'Unknown Operator'}</em><br/>
+                Type: ${line.type.toUpperCase()}<br/>
+                ${line.ref ? `Route: ${line.ref}<br/>` : ''}
+                Coordinates: ${line.coordinates.length} points
+              </div>
+            `);
+            
+            transitLayer.addLayer(polyline);
+            addedCount++;
+            
+            console.log(`✅ Added ${line.type}: "${line.name}" (${line.coordinates.length} coordinates, color: ${line.color})`);
+          } catch (error) {
+            console.error(`❌ Error adding line "${line.name}":`, error);
+          }
+        } else {
+          console.log(`⚠️ Skipping line "${line.name}" - insufficient coordinates (${line.coordinates?.length || 0})`);
         }
       });
       
-      console.log(`🗺️ Successfully added ${transitLayer.getLayers().length} transit lines to map`);
-    } else {
-      console.log('🚇 Hiding transit lines from map');
+      console.log(`🎯 Successfully added ${addedCount}/${allLines.length} transit lines to map`);
+      console.log(`🗺️ Transit layer now contains ${transitLayer.getLayers().length} total layers`);
+      
+    } else if (!showTransit) {
+      console.log('🚌 Hiding all transit lines from map');
       transitLayer.clearLayers();
+      console.log(`🗺️ Cleared transit layer - now contains ${transitLayer.getLayers().length} layers`);
+    } else if (isLoading) {
+      console.log('⏳ Transit data still loading...');
+    } else if (!transitData) {
+      console.log('📭 No transit data available to display');
     }
-  }, [map, showTransit, transitData]);
+  }, [map, showTransit, transitData, isLoading]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (transitLayerRef.current) {
+        console.log('🧹 Cleaning up transit layer on component unmount');
         transitLayerRef.current.clearLayers();
         transitLayerRef.current.remove();
-        console.log('🧹 Cleaned up transit layer on unmount');
+        transitLayerRef.current = null;
       }
     };
   }, []);
+
+  // Log loading state changes
+  useEffect(() => {
+    if (isLoading) {
+      console.log('⏳ Transit data loading started...');
+    } else {
+      console.log('✅ Transit data loading completed');
+    }
+  }, [isLoading]);
 
   return null;
 };

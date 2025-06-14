@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -100,4 +101,13 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Mapbox specific styles */
+.mapboxgl-popup-content {
+  @apply rounded-lg shadow-lg;
+}
+
+.mapboxgl-marker {
+  cursor: pointer;
 }

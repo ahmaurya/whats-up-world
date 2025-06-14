@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import { useMap } from './MapProvider';
-import { fetchTransitData, clearTransitCache } from '@/utils/overpassApi';
+import { fetchTransitData, clearTransitCache } from '@/utils/gtfsApi';
 import { TransitData, TransitLine, BoundingBox } from '@/types/transit';
 
 interface TransitLinesManagerProps {
@@ -19,8 +19,6 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
   // Debug logging for showTransit changes
   useEffect(() => {
     console.log('TransitLinesManager: showTransit changed to:', showTransit);
-    console.log('TransitLinesManager: transitLayerRef.current exists:', !!transitLayerRef.current);
-    console.log('TransitLinesManager: map.current exists:', !!map.current);
   }, [showTransit]);
 
   // Function to check if bounds have changed significantly
@@ -36,7 +34,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     );
   }, []);
 
-  // Debounced function to fetch data
+  // Fetch data for current view
   const fetchDataForCurrentView = useCallback(async () => {
     if (!map.current || isLoading) {
       console.log('Skipping fetch: map missing or loading in progress');
@@ -57,22 +55,20 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
       return;
     }
 
-    console.log('Fetching transit data for bounds:', boundsData);
+    console.log('Fetching Seattle transit data for bounds:', boundsData);
     setIsLoading(true);
     setCurrentBounds(boundsData);
 
     try {
       const data = await fetchTransitData(boundsData);
-      console.log('Transit data fetched successfully:', data);
+      console.log('Seattle transit data fetched successfully:', data);
       
-      // Check if we actually got data
       const totalLines = Object.values(data).reduce((sum, lines) => sum + lines.length, 0);
       console.log('Total transit lines received:', totalLines);
       
       setTransitData(data);
     } catch (error) {
-      console.error('Failed to fetch transit data:', error);
-      // Don't clear existing data on error, keep showing what we have
+      console.error('Failed to fetch Seattle transit data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -90,11 +86,11 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
   };
 
   const getLineWeight = (type: keyof TransitData): number => {
-    return type === 'subway' || type === 'rail' ? 5 : 3;
+    return type === 'subway' || type === 'rail' ? 6 : 4;
   };
 
   const createTooltipContent = (line: TransitLine, type: string): string => {
-    let content = `<div style="font-size: 14px;">`;
+    let content = `<div style="font-size: 14px; max-width: 200px;">`;
     content += `<strong>${line.name}</strong><br/>`;
     content += `<span style="color: #666;">Type: ${type.charAt(0).toUpperCase() + type.slice(1)}</span>`;
     if (line.operator) content += `<br/><span style="color: #666;">Operator: ${line.operator}</span>`;
@@ -105,7 +101,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
 
   // Create transit layer from fetched data
   const createTransitLayer = useCallback((data: TransitData): L.LayerGroup => {
-    console.log('Creating transit layer with data:', data);
+    console.log('Creating transit layer with Seattle data:', data);
     const transitLayer = L.layerGroup();
     let totalLinesAdded = 0;
 
@@ -125,13 +121,13 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
         const polylineOptions: L.PolylineOptions = {
           color: line.color || getDefaultColor(type as keyof TransitData),
           weight: getLineWeight(type as keyof TransitData),
-          opacity: 0.8,
+          opacity: 0.9,
           smoothFactor: 1.0
         };
 
-        // Add dash pattern for buses and trams
-        if (type === 'bus' || type === 'tram') {
-          polylineOptions.dashArray = '8, 4';
+        // Add dash pattern for buses
+        if (type === 'bus') {
+          polylineOptions.dashArray = '10, 5';
         }
 
         const polyline = L.polyline(latLngs, polylineOptions);
@@ -145,10 +141,13 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
           opacity: 0.9,
           offset: [0, -10]
         });
+
+        // Add popup for more details
+        polyline.bindPopup(tooltipContent);
         
         transitLayer.addLayer(polyline);
         totalLinesAdded++;
-        console.log(`Added ${type} line: ${line.name}`);
+        console.log(`Added ${type} line: ${line.name} with ${line.coordinates.length} coordinates`);
       });
     });
 
@@ -161,7 +160,6 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     console.log('Transit data or showTransit changed');
     console.log('- transitData exists:', !!transitData);
     console.log('- showTransit:', showTransit);
-    console.log('- map.current exists:', !!map.current);
 
     if (!map.current) return;
 
@@ -195,11 +193,10 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     }
   }, [transitData, createTransitLayer, showTransit, map]);
 
-  // Toggle transit layer visibility when showTransit changes
+  // Toggle transit layer visibility
   useEffect(() => {
     console.log('showTransit toggle effect triggered');
     console.log('- showTransit:', showTransit);
-    console.log('- map.current exists:', !!map.current);
     console.log('- transitLayerRef.current exists:', !!transitLayerRef.current);
 
     if (!map.current || !transitLayerRef.current) {
@@ -211,15 +208,11 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
       if (!map.current.hasLayer(transitLayerRef.current)) {
         console.log('Adding transit layer to map (toggle on)');
         transitLayerRef.current.addTo(map.current);
-      } else {
-        console.log('Transit layer already on map');
       }
     } else {
       if (map.current.hasLayer(transitLayerRef.current)) {
         console.log('Removing transit layer from map (toggle off)');
         map.current.removeLayer(transitLayerRef.current);
-      } else {
-        console.log('Transit layer not on map');
       }
     }
   }, [showTransit]);
@@ -234,13 +227,11 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
       const zoom = map.current?.getZoom();
       console.log('Map moved, zoom level:', zoom);
       
-      // Fetch data at zoom levels 11 and higher for Seattle area
-      if (zoom && zoom >= 11) {
-        // Debounce the fetch to avoid too many requests
+      // Fetch data at zoom levels 10 and higher for Seattle area
+      if (zoom && zoom >= 10) {
         clearTimeout(debounceTimeout);
-        debounceTimeout = setTimeout(fetchDataForCurrentView, 1000);
+        debounceTimeout = setTimeout(fetchDataForCurrentView, 800);
       } else {
-        // Clear data at low zoom levels to improve performance
         console.log('Zoom too low, clearing transit data');
         setTransitData(null);
         setCurrentBounds(null);
@@ -250,8 +241,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     // Initial data fetch
     const zoom = map.current.getZoom();
     console.log('Initial zoom level:', zoom);
-    if (zoom >= 11) {
-      // Immediate fetch for initial load
+    if (zoom >= 10) {
       setTimeout(fetchDataForCurrentView, 500);
     }
 

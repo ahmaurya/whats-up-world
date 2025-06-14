@@ -6,8 +6,6 @@ import MapControls from './MapControls';
 import RestaurantPopup from './RestaurantPopup';
 import TransitLinesManager from './TransitLinesManager';
 import RestaurantMarkersManager from './RestaurantMarkersManager';
-import TransitToggleTest from './TransitToggleTest';
-import TransitDataDebugger from './TransitDataDebugger';
 import { Restaurant } from '@/hooks/useRestaurants';
 
 const Map = () => {
@@ -26,8 +24,6 @@ const Map = () => {
     <div className="relative w-full h-screen">
       <div ref={mapContainer} className="absolute inset-0" />
       <MapControls />
-      <TransitToggleTest />
-      <TransitDataDebugger />
       <TransitLinesManager map={map.current} />
       <RestaurantMarkersManager 
         map={map.current} 

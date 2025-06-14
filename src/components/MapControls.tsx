@@ -6,7 +6,7 @@ import { useMap } from './MapProvider';
 import { Map, Train } from 'lucide-react';
 
 const MapControls = () => {
-  const { clearPoints, showTransit, toggleTransit, showRestaurants, toggleRestaurants } = useMap();
+  const { showTransit, toggleTransit, showRestaurants, toggleRestaurants } = useMap();
 
   return (
     <Card className="absolute top-16 right-4 p-3 space-y-3 z-[2000] bg-white/95 backdrop-blur-sm border shadow-lg w-auto min-w-0">
@@ -29,15 +29,6 @@ const MapControls = () => {
         >
           <Map size={14} />
           Restaurants
-        </Button>
-        
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={clearPoints}
-          className="w-full text-xs px-3 py-1.5 min-w-[120px]"
-        >
-          Clear Points
         </Button>
       </div>
       

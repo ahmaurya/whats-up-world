@@ -31,7 +31,7 @@ const DistanceDisplay = () => {
   if (selectedPoints.length === 0) {
     console.log('Showing default distance calculator state');
     return (
-      <Card className="absolute bottom-4 left-4 p-4 z-10 bg-white/95 backdrop-blur-sm border-2 border-blue-500">
+      <Card className="absolute bottom-4 left-4 p-4 z-[1000] bg-white/95 backdrop-blur-sm border-2 border-blue-500">
         <div className="space-y-2">
           <p className="text-sm font-medium">Distance Calculator</p>
           <p className="text-sm text-gray-600">
@@ -46,7 +46,7 @@ const DistanceDisplay = () => {
   if (selectedPoints.length === 1) {
     console.log('Showing one point selected state');
     return (
-      <Card className="absolute bottom-4 left-4 p-4 z-10 bg-white/95 backdrop-blur-sm">
+      <Card className="absolute bottom-4 left-4 p-4 z-[1000] bg-white/95 backdrop-blur-sm">
         <div className="space-y-2">
           <p className="text-sm font-medium">Distance Measurement</p>
           <p className="text-sm text-gray-600">
@@ -65,7 +65,7 @@ const DistanceDisplay = () => {
 
   console.log('Showing distance calculation:', distance);
   return (
-    <Card className="absolute bottom-4 left-4 p-4 z-10 bg-white/95 backdrop-blur-sm">
+    <Card className="absolute bottom-4 left-4 p-4 z-[1000] bg-white/95 backdrop-blur-sm">
       <div className="space-y-2">
         <p className="text-sm font-medium">Distance Measurement</p>
         <p className="text-2xl font-bold text-blue-600">

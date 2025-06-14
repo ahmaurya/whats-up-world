@@ -36,7 +36,7 @@ export const useRestaurants = () => {
       // Fetch vegetarian restaurants if toggle is on
       if (showVegetarian) {
         console.log('🥬 Fetching vegetarian restaurants...');
-        const { data: vegData, error: vegError } = await supabase.functions.invoke('get-yelp-restaurants', {
+        const { data: vegData, error: vegError } = await supabase.functions.invoke('get-google-restaurants', {
           body: { lat, lng, radius, restaurantType: 'vegetarian' }
         });
 
@@ -56,7 +56,7 @@ export const useRestaurants = () => {
       // Fetch non-vegetarian restaurants if toggle is on
       if (showNonVegetarian) {
         console.log('🍖 Fetching non-vegetarian restaurants...');
-        const { data: nonVegData, error: nonVegError } = await supabase.functions.invoke('get-yelp-restaurants', {
+        const { data: nonVegData, error: nonVegError } = await supabase.functions.invoke('get-google-restaurants', {
           body: { lat, lng, radius, restaurantType: 'non-vegetarian' }
         });
 

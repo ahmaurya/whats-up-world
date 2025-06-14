@@ -1,5 +1,5 @@
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import L from 'leaflet';
 import { useMap } from './MapProvider';
 import { useRestaurants, Restaurant } from '@/hooks/useRestaurants';
@@ -16,8 +16,10 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
   const { showVegetarianRestaurants, showNonVegetarianRestaurants } = useMap();
   const { restaurants, fetchRestaurants, loading, error } = useRestaurants();
   const restaurantMarkersRef = useRef<L.Marker[]>([]);
+  const lastFetchedBoundsRef = useRef<L.LatLngBounds | null>(null);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const createRestaurantMarkers = () => {
+  const createRestaurantMarkers = useCallback(() => {
     if (!map) return;
 
     // Clear existing markers
@@ -80,60 +82,104 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
 
       restaurantMarkersRef.current.push(marker);
     });
-  };
+  }, [map, restaurants, showVegetarianRestaurants, showNonVegetarianRestaurants, onRestaurantClick]);
 
-  // Fetch restaurants when map center changes or when restaurants are toggled on
-  useEffect(() => {
+  const shouldFetchRestaurants = useCallback((currentBounds: L.LatLngBounds) => {
+    if (!lastFetchedBoundsRef.current) return true;
+    
+    // Check if current view has moved significantly from last fetch
+    const lastBounds = lastFetchedBoundsRef.current;
+    const currentCenter = currentBounds.getCenter();
+    const lastCenter = lastBounds.getCenter();
+    
+    // Calculate distance between centers
+    const distance = currentCenter.distanceTo(lastCenter);
+    
+    // Fetch if moved more than 2km or if bounds don't overlap significantly
+    return distance > 2000 || !lastBounds.intersects(currentBounds);
+  }, []);
+
+  const handleMapChange = useCallback(() => {
     if (!map || (!showVegetarianRestaurants && !showNonVegetarianRestaurants)) return;
 
-    const handleMoveEnd = () => {
-      if (!map) return;
-      
-      const center = map.getCenter();
-      const zoom = map.getZoom();
-      
-      // Only fetch if zoomed in enough to see local restaurants
-      if (zoom >= 12) {
-        fetchRestaurants(center.lat, center.lng, 5000, showVegetarianRestaurants, showNonVegetarianRestaurants);
-      }
-    };
-
-    // Fetch restaurants immediately if zoomed in enough
-    const center = map.getCenter();
     const zoom = map.getZoom();
-    if (zoom >= 12) {
-      fetchRestaurants(center.lat, center.lng, 5000, showVegetarianRestaurants, showNonVegetarianRestaurants);
+    
+    // Only fetch if zoomed in enough to see local restaurants
+    if (zoom < 12) return;
+
+    const bounds = map.getBounds();
+    
+    // Check if we should fetch based on movement
+    if (!shouldFetchRestaurants(bounds)) return;
+
+    // Clear any existing timeout
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
     }
 
-    map.on('moveend', handleMoveEnd);
+    // Debounce the fetch request to avoid too many API calls
+    fetchTimeoutRef.current = setTimeout(() => {
+      const center = bounds.getCenter();
+      console.log(`Fetching restaurants for new area: ${center.lat}, ${center.lng}`);
+      
+      fetchRestaurants(
+        center.lat, 
+        center.lng, 
+        5000, 
+        showVegetarianRestaurants, 
+        showNonVegetarianRestaurants
+      );
+      
+      lastFetchedBoundsRef.current = bounds;
+    }, 500); // 500ms debounce
+  }, [map, showVegetarianRestaurants, showNonVegetarianRestaurants, fetchRestaurants, shouldFetchRestaurants]);
 
-    return () => {
-      if (map) {
-        map.off('moveend', handleMoveEnd);
-      }
-    };
-  }, [showVegetarianRestaurants, showNonVegetarianRestaurants, fetchRestaurants]);
-
-  // Update restaurant marker visibility when toggle states change
+  // Set up map event listeners for dynamic fetching
   useEffect(() => {
     if (!map) return;
 
-    if (showVegetarianRestaurants || showNonVegetarianRestaurants) {
-      restaurantMarkersRef.current.forEach(marker => {
-        if (!map.hasLayer(marker)) {
-          marker.addTo(map);
-        }
-      });
-    } else {
+    // Initial fetch if zoom is adequate and toggles are on
+    handleMapChange();
+
+    // Listen to map events
+    map.on('moveend', handleMapChange);
+    map.on('zoomend', handleMapChange);
+
+    return () => {
+      if (map) {
+        map.off('moveend', handleMapChange);
+        map.off('zoomend', handleMapChange);
+      }
+      
+      // Clear timeout on cleanup
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, [map, handleMapChange]);
+
+  // Fetch restaurants when toggle states change
+  useEffect(() => {
+    if (!map || (!showVegetarianRestaurants && !showNonVegetarianRestaurants)) {
+      // Clear restaurants if both toggles are off
       restaurantMarkersRef.current.forEach(marker => {
         if (map.hasLayer(marker)) {
           map.removeLayer(marker);
         }
       });
+      return;
     }
-  }, [showVegetarianRestaurants, showNonVegetarianRestaurants]);
 
-  // Create markers when restaurants data changes or toggle states change
+    // If either toggle is turned on, trigger a fetch
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    
+    if (zoom >= 12) {
+      fetchRestaurants(center.lat, center.lng, 5000, showVegetarianRestaurants, showNonVegetarianRestaurants);
+    }
+  }, [showVegetarianRestaurants, showNonVegetarianRestaurants, fetchRestaurants, map]);
+
+  // Create and display markers when restaurants data changes
   useEffect(() => {
     createRestaurantMarkers();
     
@@ -143,7 +189,7 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
         marker.addTo(map!);
       });
     }
-  }, [restaurants, showVegetarianRestaurants, showNonVegetarianRestaurants]);
+  }, [createRestaurantMarkers, showVegetarianRestaurants, showNonVegetarianRestaurants]);
 
   // Show loading/error state in console for debugging
   useEffect(() => {

@@ -22,6 +22,21 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
   railTransitLayer,
   busTransitLayer
 }) => {
+  // Helper function to get color based on transit type
+  const getTransitColor = (type: string): string => {
+    switch (type) {
+      case 'subway':
+      case 'rail':
+        return '#3B82F6'; // Blue for rail/subway
+      case 'tram':
+        return '#F97316'; // Orange for trams/streetcar
+      case 'bus':
+        return '#22C55E'; // Green for buses
+      default:
+        return '#6B7280'; // Gray fallback
+    }
+  };
+
   // Helper function to calculate distance between two coordinates in meters
   const getDistance = (coord1: [number, number], coord2: [number, number]): number => {
     const R = 6371000; // Earth's radius in meters
@@ -99,10 +114,10 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
             // Convert coordinates from [longitude, latitude] to [latitude, longitude] for Leaflet
             const leafletCoordinates: [number, number][] = line.coordinates.map(coord => [coord[1], coord[0]]);
             
-            console.log(`🔍 Rail Line "${line.name}" (${line.type}): ${line.coordinates.length} coordinates, color: ${line.color}`);
+            console.log(`🔍 Rail Line "${line.name}" (${line.type}): ${line.coordinates.length} coordinates, color: ${getTransitColor(line.type)}`);
             
             const polyline = L.polyline(leafletCoordinates, {
-              color: line.color || '#0066CC',
+              color: getTransitColor(line.type),
               weight: line.type === 'subway' ? 4 : 3,
               opacity: 0.8
             });
@@ -171,7 +186,7 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
             // Convert coordinates from [longitude, latitude] to [latitude, longitude] for Leaflet
             const leafletCoordinates: [number, number][] = line.coordinates.map(coord => [coord[1], coord[0]]);
             
-            console.log(`🔍 Bus Line "${line.name}" (Route ${line.ref || 'Unknown'}): ${line.coordinates.length} coordinates, color: ${line.color}`);
+            console.log(`🔍 Bus Line "${line.name}" (Route ${line.ref || 'Unknown'}): ${line.coordinates.length} coordinates, color: ${getTransitColor('bus')}`);
             
             // Create route segments to avoid long straight lines over city blocks
             const routeSegments = createRouteSegments(leafletCoordinates, 2000); // Max 2km between points
@@ -181,7 +196,7 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
             routeSegments.forEach((segment, segmentIndex) => {
               if (segment.length > 1) {
                 const polyline = L.polyline(segment, {
-                  color: line.color || '#00AA44',
+                  color: getTransitColor('bus'),
                   weight: 2,
                   opacity: 0.8
                 });

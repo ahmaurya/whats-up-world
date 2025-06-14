@@ -23,9 +23,9 @@ export const useRestaurants = () => {
     setError(null);
 
     try {
-      console.log(`Fetching restaurants near ${lat}, ${lng}`);
+      console.log(`Fetching restaurants from Yelp near ${lat}, ${lng}`);
       
-      const { data, error: functionError } = await supabase.functions.invoke('get-restaurants', {
+      const { data, error: functionError } = await supabase.functions.invoke('get-yelp-restaurants', {
         body: { lat, lng, radius }
       });
 
@@ -44,11 +44,11 @@ export const useRestaurants = () => {
       }));
 
       setRestaurants(processedRestaurants);
-      console.log(`Loaded ${processedRestaurants.length} restaurants`);
+      console.log(`Loaded ${processedRestaurants.length} restaurants from Yelp`);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch restaurants';
-      console.error('Error fetching restaurants:', errorMessage);
+      console.error('Error fetching restaurants from Yelp:', errorMessage);
       setError(errorMessage);
       setRestaurants([]);
     } finally {
@@ -68,7 +68,7 @@ export const useRestaurants = () => {
 const isVegetarianRestaurant = (restaurant: Restaurant): boolean => {
   const vegKeywords = [
     'vegan', 'vegetarian', 'plant-based', 'veggie', 'salad', 'juice',
-    'smoothie', 'health', 'organic', 'green', 'natural'
+    'smoothie', 'health', 'organic', 'green', 'natural', 'tofu', 'quinoa'
   ];
   
   const text = `${restaurant.name} ${restaurant.cuisine} ${restaurant.description}`.toLowerCase();

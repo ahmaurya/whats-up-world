@@ -47,21 +47,14 @@ serve(async (req) => {
     let allRestaurants: any[] = [];
 
     if (restaurantType === 'vegetarian') {
-      // Multiple comprehensive searches for vegetarian restaurants
+      // Conservative search terms for vegetarian restaurants only
       const vegetarianQueries = [
         'vegetarian restaurant',
         'vegan restaurant', 
-        'plant based restaurant',
-        'organic restaurant',
-        'healthy restaurant vegetarian',
-        'salad restaurant',
-        'juice bar restaurant',
-        'raw food restaurant',
-        'macrobiotic restaurant',
-        'farm to table vegetarian'
+        'plant based restaurant'
       ];
 
-      console.log(`🥬 Performing ${vegetarianQueries.length} comprehensive vegetarian searches...`);
+      console.log(`🥬 Performing ${vegetarianQueries.length} vegetarian searches...`);
 
       for (let i = 0; i < vegetarianQueries.length; i++) {
         const query = vegetarianQueries[i];
@@ -118,14 +111,12 @@ serve(async (req) => {
       }
 
     } else if (restaurantType === 'non-vegetarian') {
-      // Enhanced non-vegetarian search
+      // Simple search for general restaurants
       const nonVegQueries = [
         'restaurant',
         'steakhouse',
         'seafood restaurant',
-        'burger restaurant',
-        'bbq restaurant',
-        'grill restaurant'
+        'burger restaurant'
       ];
 
       console.log(`🍖 Performing ${nonVegQueries.length} non-vegetarian searches...`);
@@ -211,16 +202,10 @@ serve(async (req) => {
       website: place.websiteUri || null
     }));
 
-    // For non-vegetarian requests, filter out vegetarian restaurants based on keywords and types
+    // Filter out vegetarian restaurants from non-vegetarian results
     if (restaurantType === 'non-vegetarian') {
-      const vegetarianKeywords = [
-        'vegetarian', 'vegan', 'plant-based', 'veggie', 'herbivore',
-        'plant based', 'raw food', 'green cuisine', 'salad bar', 'juice bar'
-      ];
-      
-      const vegetarianTypes = [
-        'vegetarian_restaurant', 'vegan_restaurant', 'health_food_restaurant'
-      ];
+      const vegetarianKeywords = ['vegetarian', 'vegan', 'plant-based', 'veggie'];
+      const vegetarianTypes = ['vegetarian_restaurant', 'vegan_restaurant'];
       
       restaurants = restaurants.filter((restaurant: any) => {
         const name = restaurant.name.toLowerCase();
@@ -239,34 +224,6 @@ serve(async (req) => {
       });
     }
 
-    // For vegetarian requests, enhance filtering to ensure relevance
-    if (restaurantType === 'vegetarian') {
-      const vegetarianKeywords = [
-        'vegetarian', 'vegan', 'plant-based', 'veggie', 'organic',
-        'healthy', 'salad', 'juice', 'raw', 'farm to table', 'natural'
-      ];
-      
-      // Prioritize restaurants that explicitly mention vegetarian terms
-      restaurants = restaurants.map((restaurant: any) => {
-        const name = restaurant.name.toLowerCase();
-        const description = restaurant.description.toLowerCase();
-        const types = restaurant.types || [];
-        
-        const hasVegKeyword = vegetarianKeywords.some(keyword => 
-          name.includes(keyword) || description.includes(keyword)
-        );
-        
-        const hasVegType = types.some((type: string) => 
-          type.includes('vegetarian') || type.includes('vegan') || type.includes('health')
-        );
-        
-        return {
-          ...restaurant,
-          relevanceScore: (hasVegKeyword ? 2 : 0) + (hasVegType ? 1 : 0)
-        };
-      }).sort((a, b) => b.relevanceScore - a.relevanceScore);
-    }
-
     console.log(`✅ Final result: ${restaurants.length} ${restaurantType} restaurants`);
 
     return new Response(
@@ -275,7 +232,7 @@ serve(async (req) => {
         headers: { 
           ...corsHeaders, 
           'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=300' // Cache for 5 minutes
+          'Cache-Control': 'public, max-age=300'
         } 
       }
     );

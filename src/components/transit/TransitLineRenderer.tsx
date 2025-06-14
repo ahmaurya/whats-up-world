@@ -1,4 +1,3 @@
-
 import React from 'react';
 import L from 'leaflet';
 import { TransitLine } from '@/types/transit';
@@ -33,7 +32,7 @@ const TransitLineRenderer: React.FC<TransitLineRendererProps> = ({
   };
 
   // Helper function to filter coordinates and create route segments
-  const createRouteSegments = (coordinates: [number, number][], maxDistance: number = 800): [number, number][][] => {
+  const createRouteSegments = (coordinates: [number, number][], maxDistance: number = 480): [number, number][][] => {
     if (coordinates.length < 2) return [];
     
     const segments: [number, number][][] = [];
@@ -75,8 +74,8 @@ const TransitLineRenderer: React.FC<TransitLineRendererProps> = ({
           console.log(`🔍 ${lineType} Line "${line.name}" (${line.type}): ${line.coordinates.length} coordinates, color: ${getTransitColor(line.type)}`);
           
           if (lineType === 'bus') {
-            // Create route segments to avoid long straight lines over city blocks (0.5 miles = 800 meters)
-            const routeSegments = createRouteSegments(leafletCoordinates, 800);
+            // Create route segments to avoid long straight lines over city blocks (0.3 miles = 480 meters)
+            const routeSegments = createRouteSegments(leafletCoordinates, 480);
             
             console.log(`📍 Created ${routeSegments.length} segments for bus route "${line.name}"`);
             

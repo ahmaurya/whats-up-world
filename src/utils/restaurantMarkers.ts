@@ -20,7 +20,7 @@ export const createRestaurantMarker = (
 
   const popupContent = createPopupContent(restaurant, markerColor);
   marker.bindPopup(popupContent, {
-    maxWidth: 250,
+    maxWidth: 280,
     className: 'restaurant-popup'
   });
 
@@ -35,7 +35,7 @@ const createPopupContent = (restaurant: Restaurant, markerColor: string): string
   const isVegetarian = restaurant.isVegetarian;
   
   return `
-    <div style="max-width: 200px;">
+    <div style="max-width: 240px; min-height: 180px; padding: 8px;">
       <h3 style="margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">${restaurant.name}</h3>
       <div style="margin-bottom: 6px;">
         <span style="color: #f59e0b; font-weight: bold;">${restaurant.rating > 0 ? restaurant.rating.toFixed(1) : 'N/A'}</span>
@@ -48,9 +48,16 @@ const createPopupContent = (restaurant: Restaurant, markerColor: string): string
       <div style="margin-bottom: 6px; font-size: 12px;">
         <strong>Type:</strong> <span style="color: ${markerColor}; font-weight: bold;">${isVegetarian ? 'Vegetarian/Vegan' : 'Non-Vegetarian'}</span>
       </div>
-      <div style="font-size: 12px; color: #666;">
+      <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
         ${restaurant.description}
       </div>
+      ${restaurant.website ? `
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e5e5;">
+          <a href="${restaurant.website}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-size: 12px; font-weight: 500;">
+            🌐 Visit Website
+          </a>
+        </div>
+      ` : ''}
     </div>
   `;
 };

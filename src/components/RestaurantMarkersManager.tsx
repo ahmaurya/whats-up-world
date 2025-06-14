@@ -82,7 +82,7 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
   const handleInitialFetch = useCallback(() => {
     if (!map || hasInitialFetchRef.current) return;
     
-    console.log('Attempting initial restaurant fetch...');
+    console.log('🍽️ Attempting initial restaurant fetch...');
     console.log('Map zoom level:', map.getZoom());
     console.log('Show vegetarian:', showVegetarianRestaurants);
     console.log('Show non-vegetarian:', showNonVegetarianRestaurants);
@@ -90,8 +90,9 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     // Check if any restaurant type is enabled
     if (showVegetarianRestaurants || showNonVegetarianRestaurants) {
       const center = map.getCenter();
-      console.log(`Initial restaurant fetch at: ${center.lat}, ${center.lng}`);
+      console.log(`🌟 Initial restaurant fetch at: ${center.lat}, ${center.lng}`);
       
+      // Force initial fetch regardless of zoom level
       fetchRestaurants(
         center.lat, 
         center.lng, 
@@ -102,17 +103,21 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
       
       hasInitialFetchRef.current = true;
       lastFetchedBoundsRef.current = map.getBounds();
+    } else {
+      console.log('🚫 No restaurant types enabled for initial fetch');
     }
   }, [map, showVegetarianRestaurants, showNonVegetarianRestaurants, fetchRestaurants]);
 
-  // Initial fetch when map is ready - removed zoom level restriction and delay
+  // Initial fetch when map is ready
   useEffect(() => {
     if (!map) return;
+    
+    console.log('🗺️ Map is ready, setting up initial fetch timer...');
     
     // Add a small delay to ensure map is fully initialized
     const timer = setTimeout(() => {
       handleInitialFetch();
-    }, 500);
+    }, 1000); // Increased delay to ensure map is fully ready
     
     return () => clearTimeout(timer);
   }, [map, handleInitialFetch]);
@@ -140,29 +145,34 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     }
 
     const center = map.getCenter();
-    console.log('Toggle states changed, fetching restaurants...');
+    console.log('🔄 Toggle states changed, fetching restaurants...');
+    console.log('Vegetarian enabled:', showVegetarianRestaurants);
+    console.log('Non-vegetarian enabled:', showNonVegetarianRestaurants);
     
     fetchRestaurants(center.lat, center.lng, 5000, showVegetarianRestaurants, showNonVegetarianRestaurants);
   }, [showVegetarianRestaurants, showNonVegetarianRestaurants, fetchRestaurants, map, clearExistingMarkers]);
 
   // Create and display markers when restaurants data changes
   useEffect(() => {
+    console.log(`📍 Restaurant data changed: ${restaurants.length} restaurants available`);
+    
     createAndAddMarkers();
     
     if (showVegetarianRestaurants || showNonVegetarianRestaurants) {
       restaurantMarkersRef.current.forEach(marker => {
         marker.addTo(map!);
       });
+      console.log(`✅ Added ${restaurantMarkersRef.current.length} restaurant markers to map`);
     }
   }, [createAndAddMarkers, showVegetarianRestaurants, showNonVegetarianRestaurants]);
 
   // Debug logging
   useEffect(() => {
     if (loading) {
-      console.log('Loading restaurants...');
+      console.log('⏳ Loading restaurants...');
     }
     if (error) {
-      console.error('Restaurant loading error:', error);
+      console.error('❌ Restaurant loading error:', error);
     }
   }, [loading, error]);
 

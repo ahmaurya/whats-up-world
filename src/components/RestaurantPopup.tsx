@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import { X, ExternalLink } from 'lucide-react';
 import { Restaurant } from '@/hooks/useRestaurants';
 
 interface RestaurantPopupProps {
@@ -12,10 +12,10 @@ interface RestaurantPopupProps {
 
 const RestaurantPopup: React.FC<RestaurantPopupProps> = ({ restaurant, onClose }) => {
   return (
-    <Card className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-6 z-20 bg-white shadow-lg max-w-sm w-full mx-4">
+    <Card className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-6 z-20 bg-white shadow-lg max-w-sm w-full mx-4 min-h-[200px]">
       <div className="flex justify-between items-start mb-4">
-        <h3 className="text-lg font-bold">{restaurant.name}</h3>
-        <Button variant="ghost" size="sm" onClick={onClose}>
+        <h3 className="text-lg font-bold pr-8">{restaurant.name}</h3>
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0 flex-shrink-0">
           <X size={16} />
         </Button>
       </div>
@@ -40,9 +40,23 @@ const RestaurantPopup: React.FC<RestaurantPopupProps> = ({ restaurant, onClose }
           <p className="text-sm text-gray-600">
             {restaurant.description}
           </p>
+          
+          {restaurant.website && (
+            <div className="pt-2">
+              <a 
+                href={restaurant.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+              >
+                <ExternalLink size={14} />
+                Visit Website
+              </a>
+            </div>
+          )}
         </div>
         
-        <div className="pt-2 border-t">
+        <div className="pt-2 border-t mt-4">
           <p className="text-xs text-gray-500">
             * Data provided by Google Places API
           </p>

@@ -90,7 +90,7 @@ serve(async (req) => {
             headers: {
               'Content-Type': 'application/json',
               'X-Goog-Api-Key': apiKey,
-              'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.rating,places.userRatingCount,places.primaryType,places.formattedAddress,places.types'
+              'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.rating,places.userRatingCount,places.primaryType,places.formattedAddress,places.types,places.websiteUri'
             },
             body: JSON.stringify(requestBody)
           });
@@ -157,7 +157,7 @@ serve(async (req) => {
             headers: {
               'Content-Type': 'application/json',
               'X-Goog-Api-Key': apiKey,
-              'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.rating,places.userRatingCount,places.primaryType,places.formattedAddress,places.types'
+              'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.rating,places.userRatingCount,places.primaryType,places.formattedAddress,places.types,places.websiteUri'
             },
             body: JSON.stringify(requestBody)
           });
@@ -207,7 +207,8 @@ serve(async (req) => {
       cuisine: place.primaryType || 'restaurant',
       description: place.formattedAddress || '',
       restaurantType: restaurantType,
-      types: place.types || []
+      types: place.types || [],
+      website: place.websiteUri || null
     }));
 
     // For non-vegetarian requests, filter out vegetarian restaurants based on keywords and types

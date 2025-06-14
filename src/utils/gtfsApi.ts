@@ -34,7 +34,7 @@ const SEATTLE_TRANSIT_ROUTES = {
         [-122.296564, 47.471671], // Tukwila International Boulevard
         [-122.347160, 47.460710], // SeaTac/Airport
         [-122.298077, 47.422303]  // Angle Lake
-      ]
+      ] as [number, number][]
     }
   ],
   busRoutes: [
@@ -54,7 +54,7 @@ const SEATTLE_TRANSIT_ROUTES = {
         [-122.319336, 47.659847],
         [-122.307816, 47.661490],
         [-122.305031, 47.665859]  // University District
-      ]
+      ] as [number, number][]
     },
     {
       id: 'route-8',
@@ -70,7 +70,7 @@ const SEATTLE_TRANSIT_ROUTES = {
         [-122.337189, 47.609722], // Downtown
         [-122.342987, 47.620859], // South Lake Union
         [-122.347755, 47.627932]
-      ]
+      ] as [number, number][]
     }
   ],
   streetcar: [
@@ -89,7 +89,7 @@ const SEATTLE_TRANSIT_ROUTES = {
         [-122.309570, 47.620928],
         [-122.307816, 47.625530],
         [-122.306061, 47.630132]  // Capitol Hill
-      ]
+      ] as [number, number][]
     }
   ]
 };

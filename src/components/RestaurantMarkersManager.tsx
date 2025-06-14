@@ -82,31 +82,40 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
   const handleInitialFetch = useCallback(() => {
     if (!map || hasInitialFetchRef.current) return;
     
-    setTimeout(() => {
-      const zoom = map.getZoom();
+    console.log('Attempting initial restaurant fetch...');
+    console.log('Map zoom level:', map.getZoom());
+    console.log('Show vegetarian:', showVegetarianRestaurants);
+    console.log('Show non-vegetarian:', showNonVegetarianRestaurants);
+    
+    // Check if any restaurant type is enabled
+    if (showVegetarianRestaurants || showNonVegetarianRestaurants) {
+      const center = map.getCenter();
+      console.log(`Initial restaurant fetch at: ${center.lat}, ${center.lng}`);
       
-      if (isZoomLevelSufficient(zoom) && (showVegetarianRestaurants || showNonVegetarianRestaurants)) {
-        const center = map.getCenter();
-        console.log(`Initial restaurant fetch at: ${center.lat}, ${center.lng}`);
-        
-        fetchRestaurants(
-          center.lat, 
-          center.lng, 
-          5000, 
-          showVegetarianRestaurants, 
-          showNonVegetarianRestaurants
-        );
-        
-        hasInitialFetchRef.current = true;
-        lastFetchedBoundsRef.current = map.getBounds();
-      }
-    }, 1000);
+      fetchRestaurants(
+        center.lat, 
+        center.lng, 
+        5000, 
+        showVegetarianRestaurants, 
+        showNonVegetarianRestaurants
+      );
+      
+      hasInitialFetchRef.current = true;
+      lastFetchedBoundsRef.current = map.getBounds();
+    }
   }, [map, showVegetarianRestaurants, showNonVegetarianRestaurants, fetchRestaurants]);
 
-  // Initial fetch when map is ready
+  // Initial fetch when map is ready - removed zoom level restriction and delay
   useEffect(() => {
-    handleInitialFetch();
-  }, [handleInitialFetch]);
+    if (!map) return;
+    
+    // Add a small delay to ensure map is fully initialized
+    const timer = setTimeout(() => {
+      handleInitialFetch();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [map, handleInitialFetch]);
 
   // Set up map event listeners
   useEffect(() => {
@@ -131,11 +140,9 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     }
 
     const center = map.getCenter();
-    const zoom = map.getZoom();
+    console.log('Toggle states changed, fetching restaurants...');
     
-    if (isZoomLevelSufficient(zoom)) {
-      fetchRestaurants(center.lat, center.lng, 5000, showVegetarianRestaurants, showNonVegetarianRestaurants);
-    }
+    fetchRestaurants(center.lat, center.lng, 5000, showVegetarianRestaurants, showNonVegetarianRestaurants);
   }, [showVegetarianRestaurants, showNonVegetarianRestaurants, fetchRestaurants, map, clearExistingMarkers]);
 
   // Create and display markers when restaurants data changes

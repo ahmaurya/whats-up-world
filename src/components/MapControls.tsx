@@ -57,6 +57,11 @@ const MapControls = () => {
           <div className="w-3 h-3 bg-red-500 rounded-full"></div>
           <span>Distance Points</span>
         </div>
+        {showRestaurants && (
+          <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
+            Zoom in (level 12+) to load restaurants from Google Places
+          </div>
+        )}
       </div>
     </Card>
   );

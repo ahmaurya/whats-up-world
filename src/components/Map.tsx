@@ -8,7 +8,7 @@ import PointEntry from './PointEntry';
 import RestaurantPopup from './RestaurantPopup';
 import TransitLinesManager from './TransitLinesManager';
 import RestaurantMarkersManager from './RestaurantMarkersManager';
-import { Restaurant } from '@/utils/restaurantData';
+import { Restaurant } from '@/hooks/useRestaurants';
 
 const Map = () => {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);

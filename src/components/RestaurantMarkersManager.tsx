@@ -1,8 +1,8 @@
 
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { mockRestaurants, Restaurant } from '@/utils/restaurantData';
 import { useMap } from './MapProvider';
+import { useRestaurants, Restaurant } from '@/hooks/useRestaurants';
 
 interface RestaurantMarkersManagerProps {
   map: React.MutableRefObject<L.Map | null>;
@@ -14,6 +14,7 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
   onRestaurantClick 
 }) => {
   const { showRestaurants } = useMap();
+  const { restaurants, fetchRestaurants, loading, error } = useRestaurants();
   const restaurantMarkersRef = useRef<L.Marker[]>([]);
 
   const addRestaurantMarkers = () => {
@@ -25,7 +26,7 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     });
     restaurantMarkersRef.current = [];
 
-    mockRestaurants.forEach((restaurant) => {
+    restaurants.forEach((restaurant) => {
       const marker = L.marker([restaurant.coordinates[1], restaurant.coordinates[0]], {
         icon: L.divIcon({
           className: 'restaurant-marker',
@@ -47,6 +48,38 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     });
   };
 
+  // Fetch restaurants when map center changes or when restaurants are toggled on
+  useEffect(() => {
+    if (!map.current || !showRestaurants) return;
+
+    const handleMoveEnd = () => {
+      if (!map.current) return;
+      
+      const center = map.current.getCenter();
+      const zoom = map.current.getZoom();
+      
+      // Only fetch if zoomed in enough to see local restaurants
+      if (zoom >= 12) {
+        fetchRestaurants(center.lat, center.lng);
+      }
+    };
+
+    // Fetch restaurants immediately if zoomed in enough
+    const center = map.current.getCenter();
+    const zoom = map.current.getZoom();
+    if (zoom >= 12) {
+      fetchRestaurants(center.lat, center.lng);
+    }
+
+    map.current.on('moveend', handleMoveEnd);
+
+    return () => {
+      if (map.current) {
+        map.current.off('moveend', handleMoveEnd);
+      }
+    };
+  }, [showRestaurants, fetchRestaurants]);
+
   // Update restaurant marker visibility
   useEffect(() => {
     if (!map.current) return;
@@ -60,11 +93,22 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     });
   }, [showRestaurants]);
 
+  // Add markers when restaurants data changes
   useEffect(() => {
-    if (map.current) {
+    if (restaurants.length > 0) {
       addRestaurantMarkers();
     }
-  }, []);
+  }, [restaurants]);
+
+  // Show loading/error state in console for debugging
+  useEffect(() => {
+    if (loading) {
+      console.log('Loading restaurants...');
+    }
+    if (error) {
+      console.error('Restaurant loading error:', error);
+    }
+  }, [loading, error]);
 
   return null;
 };

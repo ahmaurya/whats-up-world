@@ -3,16 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
-
-interface Restaurant {
-  id: number;
-  name: string;
-  coordinates: [number, number];
-  rating: number;
-  reviews: number;
-  cuisine: string;
-  description: string;
-}
+import { Restaurant } from '@/hooks/useRestaurants';
 
 interface RestaurantPopupProps {
   restaurant: Restaurant;
@@ -33,7 +24,7 @@ const RestaurantPopup: React.FC<RestaurantPopupProps> = ({ restaurant, onClose }
         <div className="flex items-center gap-2">
           <div className="flex items-center">
             <span className="text-2xl font-bold text-amber-500">
-              {restaurant.rating}
+              {restaurant.rating > 0 ? restaurant.rating.toFixed(1) : 'N/A'}
             </span>
             <span className="text-yellow-400 ml-1">★</span>
           </div>
@@ -44,7 +35,7 @@ const RestaurantPopup: React.FC<RestaurantPopupProps> = ({ restaurant, onClose }
         
         <div className="space-y-2">
           <p className="text-sm">
-            <span className="font-medium">Cuisine:</span> {restaurant.cuisine}
+            <span className="font-medium">Type:</span> {restaurant.cuisine}
           </p>
           <p className="text-sm text-gray-600">
             {restaurant.description}
@@ -53,7 +44,7 @@ const RestaurantPopup: React.FC<RestaurantPopupProps> = ({ restaurant, onClose }
         
         <div className="pt-2 border-t">
           <p className="text-xs text-gray-500">
-            * Restaurant data is mocked for demo purposes
+            * Data provided by Google Places API
           </p>
         </div>
       </div>

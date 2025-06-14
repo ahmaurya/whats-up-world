@@ -18,60 +18,72 @@ export const useRestaurants = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRestaurants = useCallback(async (lat: number, lng: number, radius = 5000) => {
+  const fetchRestaurants = useCallback(async (
+    lat: number, 
+    lng: number, 
+    radius = 5000,
+    showVegetarian = true,
+    showNonVegetarian = true
+  ) => {
     setLoading(true);
     setError(null);
 
     try {
-      console.log(`Fetching restaurants from Google Places near ${lat}, ${lng}`);
+      console.log(`Fetching restaurants near ${lat}, ${lng} - Vegetarian: ${showVegetarian}, Non-Vegetarian: ${showNonVegetarian}`);
       
-      const { data, error: functionError } = await supabase.functions.invoke('get-yelp-restaurants', {
-        body: { lat, lng, radius }
-      });
+      const allRestaurants: Restaurant[] = [];
 
-      if (functionError) {
-        throw new Error(functionError.message);
-      }
+      // Fetch vegetarian restaurants if toggle is on
+      if (showVegetarian) {
+        console.log('🥬 Fetching vegetarian restaurants...');
+        const { data: vegData, error: vegError } = await supabase.functions.invoke('get-yelp-restaurants', {
+          body: { lat, lng, radius, restaurantType: 'vegetarian' }
+        });
 
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      // Process restaurants and add vegetarian classification
-      const processedRestaurants = (data.restaurants || []).map((restaurant: Restaurant) => ({
-        ...restaurant,
-        isVegetarian: isVegetarianRestaurant(restaurant)
-      }));
-
-      // Debug logging for vegetarian classification
-      const vegetarianCount = processedRestaurants.filter(r => r.isVegetarian).length;
-      const nonVegetarianCount = processedRestaurants.filter(r => !r.isVegetarian).length;
-      
-      console.log(`🥬 Vegetarian restaurants found: ${vegetarianCount}`);
-      console.log(`🍖 Non-vegetarian restaurants found: ${nonVegetarianCount}`);
-      console.log(`📊 Total restaurants processed: ${processedRestaurants.length}`);
-      
-      // Log some examples of vegetarian restaurants if found
-      const vegetarianExamples = processedRestaurants.filter(r => r.isVegetarian).slice(0, 3);
-      if (vegetarianExamples.length > 0) {
-        console.log('🥬 Vegetarian restaurant examples:', vegetarianExamples.map(r => `${r.name} (${r.cuisine})`));
-      }
-      
-      // Log some examples of restaurants that might be misclassified
-      processedRestaurants.forEach(restaurant => {
-        const text = `${restaurant.name} ${restaurant.cuisine} ${restaurant.description}`.toLowerCase();
-        const hasVegKeywords = ['vegan', 'vegetarian', 'plant-based', 'veggie', 'salad'].some(keyword => text.includes(keyword));
-        if (hasVegKeywords) {
-          console.log(`🔍 Restaurant with veg keywords: ${restaurant.name} (${restaurant.cuisine}) - Classified as: ${restaurant.isVegetarian ? 'Vegetarian' : 'Non-Vegetarian'}`);
+        if (vegError) {
+          console.error('Error fetching vegetarian restaurants:', vegError);
+        } else if (vegData?.restaurants) {
+          const vegRestaurants = vegData.restaurants.map((restaurant: Restaurant) => ({
+            ...restaurant,
+            isVegetarian: true,
+            id: restaurant.id + 10000 // Offset IDs to avoid conflicts
+          }));
+          allRestaurants.push(...vegRestaurants);
+          console.log(`🥬 Found ${vegRestaurants.length} vegetarian restaurants`);
         }
-      });
+      }
 
-      setRestaurants(processedRestaurants);
-      console.log(`Loaded ${processedRestaurants.length} restaurants from Google Places`);
+      // Fetch non-vegetarian restaurants if toggle is on
+      if (showNonVegetarian) {
+        console.log('🍖 Fetching non-vegetarian restaurants...');
+        const { data: nonVegData, error: nonVegError } = await supabase.functions.invoke('get-yelp-restaurants', {
+          body: { lat, lng, radius, restaurantType: 'non-vegetarian' }
+        });
+
+        if (nonVegError) {
+          console.error('Error fetching non-vegetarian restaurants:', nonVegError);
+        } else if (nonVegData?.restaurants) {
+          const nonVegRestaurants = nonVegData.restaurants.map((restaurant: Restaurant) => ({
+            ...restaurant,
+            isVegetarian: false,
+            id: restaurant.id + 20000 // Offset IDs to avoid conflicts
+          }));
+          allRestaurants.push(...nonVegRestaurants);
+          console.log(`🍖 Found ${nonVegRestaurants.length} non-vegetarian restaurants`);
+        }
+      }
+
+      // Debug logging
+      const vegetarianCount = allRestaurants.filter(r => r.isVegetarian).length;
+      const nonVegetarianCount = allRestaurants.filter(r => !r.isVegetarian).length;
+      
+      console.log(`📊 Total restaurants: ${allRestaurants.length} (🥬 ${vegetarianCount} vegetarian, 🍖 ${nonVegetarianCount} non-vegetarian)`);
+
+      setRestaurants(allRestaurants);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch restaurants';
-      console.error('Error fetching restaurants from Google Places:', errorMessage);
+      console.error('Error fetching restaurants:', errorMessage);
       setError(errorMessage);
       setRestaurants([]);
     } finally {
@@ -85,22 +97,4 @@ export const useRestaurants = () => {
     error,
     fetchRestaurants
   };
-};
-
-// Helper function to determine if a restaurant is vegetarian/vegan
-const isVegetarianRestaurant = (restaurant: Restaurant): boolean => {
-  const vegKeywords = [
-    'vegan', 'vegetarian', 'plant-based', 'veggie', 'salad', 'juice',
-    'smoothie', 'health', 'organic', 'green', 'natural', 'tofu', 'quinoa'
-  ];
-  
-  const text = `${restaurant.name} ${restaurant.cuisine} ${restaurant.description}`.toLowerCase();
-  const isVeg = vegKeywords.some(keyword => text.includes(keyword));
-  
-  // Debug log for classification
-  if (isVeg) {
-    console.log(`🥬 Classified as vegetarian: ${restaurant.name} - matched keywords in: "${text}"`);
-  }
-  
-  return isVeg;
 };

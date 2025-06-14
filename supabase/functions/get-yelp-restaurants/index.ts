@@ -103,7 +103,7 @@ serve(async (req) => {
       );
     }
 
-    const { lat, lng, radius = 5000 } = body;
+    const { lat, lng, radius = 5000, restaurantType = 'all' } = body;
 
     // Validate input parameters
     validateCoordinates(lat, lng);
@@ -121,7 +121,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Fetching restaurants from Google Places near ${lat}, ${lng} with radius ${radius}m`);
+    console.log(`Fetching ${restaurantType} restaurants from Google Places near ${lat}, ${lng} with radius ${radius}m`);
 
     // Create secure API request to Google Places
     const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json');
@@ -129,6 +129,14 @@ serve(async (req) => {
     url.searchParams.set('radius', Math.min(radius, 50000).toString()); // Google Places max radius is 50km
     url.searchParams.set('type', 'restaurant');
     url.searchParams.set('key', apiKey);
+
+    // Add specific keywords based on restaurant type
+    if (restaurantType === 'vegetarian') {
+      url.searchParams.set('keyword', 'vegetarian vegan plant-based');
+    } else if (restaurantType === 'non-vegetarian') {
+      // For non-vegetarian, we'll exclude vegetarian keywords in post-processing
+      // Google Places doesn't have a good way to exclude vegetarian restaurants
+    }
 
     // Make API request with timeout
     const controller = new AbortController();
@@ -168,7 +176,7 @@ serve(async (req) => {
     }
 
     // Sanitize and transform response data
-    const restaurants = (data.results || []).map((place: any, index: number) => ({
+    let restaurants = (data.results || []).map((place: any, index: number) => ({
       id: index + 1,
       name: String(place.name || 'Unknown Restaurant').slice(0, 100),
       coordinates: [
@@ -180,10 +188,21 @@ serve(async (req) => {
       cuisine: String((place.types?.find((type: string) => 
         !['establishment', 'point_of_interest', 'food', 'restaurant'].includes(type)
       ) || 'restaurant')).replace(/_/g, ' ').slice(0, 50),
-      description: String(place.vicinity || 'No description available').slice(0, 200)
+      description: String(place.vicinity || 'No description available').slice(0, 200),
+      restaurantType: restaurantType // Add the requested type
     }));
 
-    console.log(`Found ${restaurants.length} restaurants from Google Places`);
+    // Filter based on restaurant type if needed
+    if (restaurantType === 'non-vegetarian') {
+      // Filter out restaurants that appear to be vegetarian
+      restaurants = restaurants.filter((restaurant: any) => {
+        const text = `${restaurant.name} ${restaurant.cuisine} ${restaurant.description}`.toLowerCase();
+        const vegKeywords = ['vegan', 'vegetarian', 'plant-based', 'veggie'];
+        return !vegKeywords.some(keyword => text.includes(keyword));
+      });
+    }
+
+    console.log(`Found ${restaurants.length} ${restaurantType} restaurants from Google Places`);
 
     return new Response(
       JSON.stringify({ restaurants }),

@@ -94,7 +94,7 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
       
       // Only fetch if zoomed in enough to see local restaurants
       if (zoom >= 12) {
-        fetchRestaurants(center.lat, center.lng);
+        fetchRestaurants(center.lat, center.lng, 5000, showVegetarianRestaurants, showNonVegetarianRestaurants);
       }
     };
 
@@ -102,7 +102,7 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     const center = map.getCenter();
     const zoom = map.getZoom();
     if (zoom >= 12) {
-      fetchRestaurants(center.lat, center.lng);
+      fetchRestaurants(center.lat, center.lng, 5000, showVegetarianRestaurants, showNonVegetarianRestaurants);
     }
 
     map.on('moveend', handleMoveEnd);

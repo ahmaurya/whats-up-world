@@ -30,6 +30,17 @@ const MapControls = () => {
           <div className="w-4 h-1 bg-blue-500 rounded mr-1"></div>
           Rail/Subway
         </Button>
+
+        <Button
+          variant={showRailTransit ? "default" : "outline"}
+          size="sm"
+          onClick={toggleRailTransit}
+          className="flex items-center gap-2 w-full justify-start text-xs px-3 py-1.5 min-w-[180px]"
+        >
+          <Zap size={14} />
+          <div className="w-4 h-1 bg-orange-500 rounded mr-1"></div>
+          Trams
+        </Button>
         
         <Button
           variant={showBusTransit ? "default" : "outline"}
@@ -63,24 +74,6 @@ const MapControls = () => {
           <div className="w-3 h-3 bg-red-500 rounded-full mr-1"></div>
           Non-Vegetarian
         </Button>
-      </div>
-      
-      <div className="text-xs text-gray-600 space-y-1 w-44">
-        <div className="text-center font-medium">Transit Types</div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 justify-start">
-            <div className="w-4 h-1 bg-blue-500 rounded"></div>
-            <span>Light Rail/Subway</span>
-          </div>
-          <div className="flex items-center gap-2 justify-start">
-            <div className="w-4 h-1 bg-orange-500 rounded"></div>
-            <span>Trams/Streetcar</span>
-          </div>
-          <div className="flex items-center gap-2 justify-start">
-            <div className="w-4 h-1 bg-green-500 rounded"></div>
-            <span>Bus Routes</span>
-          </div>
-        </div>
       </div>
     </Card>
   );

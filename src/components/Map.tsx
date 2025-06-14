@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { useLeaflet } from '@/hooks/useLeaflet';
 import MapControls from './MapControls';
 import DistanceDisplay from './DistanceDisplay';
+import PointEntry from './PointEntry';
 import RestaurantPopup from './RestaurantPopup';
 import TransitLinesManager from './TransitLinesManager';
 import RestaurantMarkersManager from './RestaurantMarkersManager';
@@ -25,6 +26,7 @@ const Map = () => {
     <div className="relative w-full h-screen">
       <div ref={mapContainer} className="absolute inset-0" />
       <MapControls />
+      <PointEntry />
       <DistanceDisplay />
       <TransitLinesManager map={map} />
       <RestaurantMarkersManager 

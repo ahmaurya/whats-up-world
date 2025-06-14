@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { useMap } from './MapProvider';
 
 const DistanceDisplay = () => {
-  const { selectedPoints } = useMap();
+  const { selectedPoints, pointNames } = useMap();
 
   const calculateDistance = (point1: [number, number], point2: [number, number]) => {
     const [lon1, lat1] = point1;
@@ -25,16 +25,29 @@ const DistanceDisplay = () => {
     return distance;
   };
 
-  if (selectedPoints.length < 2) {
+  // Only show the card if we have at least one point
+  if (selectedPoints.length === 0) {
+    return null;
+  }
+
+  // Show progress when we have one point
+  if (selectedPoints.length === 1) {
     return (
       <Card className="absolute bottom-4 left-4 p-4 z-10 bg-white/95 backdrop-blur-sm">
-        <p className="text-sm text-gray-600">
-          Click two points on the map to measure distance
-        </p>
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Distance Measurement</p>
+          <p className="text-sm text-gray-600">
+            Point 1: {pointNames[0] || 'Clicked Point'}
+          </p>
+          <p className="text-sm text-gray-600">
+            Click another point or enter a second address to calculate distance
+          </p>
+        </div>
       </Card>
     );
   }
 
+  // Show distance calculation when we have two points
   const distance = calculateDistance(selectedPoints[0], selectedPoints[1]);
 
   return (
@@ -44,9 +57,10 @@ const DistanceDisplay = () => {
         <p className="text-2xl font-bold text-blue-600">
           {distance.toFixed(2)} miles
         </p>
-        <p className="text-xs text-gray-600">
-          Between selected points
-        </p>
+        <div className="text-xs text-gray-600 space-y-1">
+          <p><strong>From:</strong> {pointNames[0] || 'Point 1'}</p>
+          <p><strong>To:</strong> {pointNames[1] || 'Point 2'}</p>
+        </div>
       </div>
     </Card>
   );

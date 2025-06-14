@@ -103,11 +103,13 @@
   }
 }
 
-/* Mapbox specific styles */
-.mapboxgl-popup-content {
-  @apply rounded-lg shadow-lg;
+/* Leaflet custom styles */
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
 }
 
-.mapboxgl-marker {
-  cursor: pointer;
+.restaurant-marker {
+  background: transparent !important;
+  border: none !important;
 }

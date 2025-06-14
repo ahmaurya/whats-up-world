@@ -1,11 +1,11 @@
 
-import { useEffect } from 'react';
-import mapboxgl from 'mapbox-gl';
+import { useEffect, useRef } from 'react';
+import L from 'leaflet';
 import { mockRestaurants, Restaurant } from '@/utils/restaurantData';
 import { useMap } from './MapProvider';
 
 interface RestaurantMarkersManagerProps {
-  map: React.MutableRefObject<mapboxgl.Map | null>;
+  map: React.MutableRefObject<L.Map | null>;
   onRestaurantClick: (restaurant: Restaurant) => void;
 }
 
@@ -14,21 +14,36 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
   onRestaurantClick 
 }) => {
   const { showRestaurants } = useMap();
+  const restaurantMarkersRef = useRef<L.Marker[]>([]);
 
   const addRestaurantMarkers = () => {
     if (!map.current) return;
 
-    mockRestaurants.forEach((restaurant) => {
-      const marker = new mapboxgl.Marker({ color: '#f59e0b' })
-        .setLngLat(restaurant.coordinates)
-        .addTo(map.current!);
+    // Clear existing markers
+    restaurantMarkersRef.current.forEach(marker => {
+      map.current!.removeLayer(marker);
+    });
+    restaurantMarkersRef.current = [];
 
-      marker.getElement().addEventListener('click', () => {
+    mockRestaurants.forEach((restaurant) => {
+      const marker = L.marker([restaurant.coordinates[1], restaurant.coordinates[0]], {
+        icon: L.divIcon({
+          className: 'restaurant-marker',
+          html: '<div style="background-color: #f59e0b; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; cursor: pointer;"></div>',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        })
+      });
+
+      marker.on('click', () => {
         onRestaurantClick(restaurant);
       });
 
-      marker.getElement().style.cursor = 'pointer';
-      marker.getElement().style.display = showRestaurants ? 'block' : 'none';
+      restaurantMarkersRef.current.push(marker);
+      
+      if (showRestaurants) {
+        marker.addTo(map.current!);
+      }
     });
   };
 
@@ -36,17 +51,18 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
   useEffect(() => {
     if (!map.current) return;
 
-    const markers = document.querySelectorAll('.mapboxgl-marker');
-    markers.forEach((marker, index) => {
-      if (index < mockRestaurants.length) { // Only restaurant markers
-        (marker as HTMLElement).style.display = showRestaurants ? 'block' : 'none';
+    restaurantMarkersRef.current.forEach(marker => {
+      if (showRestaurants) {
+        marker.addTo(map.current!);
+      } else {
+        map.current!.removeLayer(marker);
       }
     });
   }, [showRestaurants]);
 
   useEffect(() => {
     if (map.current) {
-      map.current.on('load', addRestaurantMarkers);
+      addRestaurantMarkers();
     }
   }, []);
 

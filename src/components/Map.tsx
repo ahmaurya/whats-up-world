@@ -1,32 +1,25 @@
 
 import React, { useState } from 'react';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { useMapbox } from '@/hooks/useMapbox';
+import 'leaflet/dist/leaflet.css';
+import { useLeaflet } from '@/hooks/useLeaflet';
 import MapControls from './MapControls';
 import DistanceDisplay from './DistanceDisplay';
 import RestaurantPopup from './RestaurantPopup';
-import MapTokenInput from './MapTokenInput';
 import TransitLinesManager from './TransitLinesManager';
 import RestaurantMarkersManager from './RestaurantMarkersManager';
 import { Restaurant } from '@/utils/restaurantData';
 
 const Map = () => {
-  const [isTokenSet, setIsTokenSet] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
-  const { mapContainer, map, initializeMap } = useMapbox();
+  const { mapContainer, map, initializeMap } = useLeaflet();
 
-  const handleTokenSubmit = (token: string) => {
-    setIsTokenSet(true);
-    initializeMap(token);
-  };
+  React.useEffect(() => {
+    initializeMap();
+  }, [initializeMap]);
 
   const handleRestaurantClick = (restaurant: Restaurant) => {
     setSelectedRestaurant(restaurant);
   };
-
-  if (!isTokenSet) {
-    return <MapTokenInput onTokenSubmit={handleTokenSubmit} />;
-  }
 
   return (
     <div className="relative w-full h-screen">

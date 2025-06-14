@@ -16,8 +16,10 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     if (!map.current) return;
 
     // Clear existing transit layer group
-    if (transitLayerGroupRef.current && map.current.hasLayer(transitLayerGroupRef.current)) {
-      map.current.removeLayer(transitLayerGroupRef.current);
+    if (transitLayerGroupRef.current) {
+      if (map.current.hasLayer(transitLayerGroupRef.current)) {
+        map.current.removeLayer(transitLayerGroupRef.current);
+      }
     }
 
     // Create new layer group for all transit lines
@@ -63,6 +65,13 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     });
   };
 
+  // Initialize transit lines when map is ready
+  useEffect(() => {
+    if (map.current && !transitLayerGroupRef.current) {
+      createTransitLines();
+    }
+  }, [map.current]);
+
   // Update transit line visibility when showTransit changes
   useEffect(() => {
     if (!map.current || !transitLayerGroupRef.current) return;
@@ -76,19 +85,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
         map.current.removeLayer(transitLayerGroupRef.current);
       }
     }
-  }, [showTransit]);
-
-  // Initialize transit lines when map is ready
-  useEffect(() => {
-    if (map.current) {
-      createTransitLines();
-      
-      // Add lines to map if showTransit is true
-      if (showTransit && transitLayerGroupRef.current) {
-        transitLayerGroupRef.current.addTo(map.current);
-      }
-    }
-  }, [map.current]);
+  }, [showTransit, map.current]);
 
   return null;
 };

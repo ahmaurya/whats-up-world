@@ -10,6 +10,7 @@ interface TransitLayerRendererProps {
   transitData: TransitData | null;
   isLoading: boolean;
   showRailTransit: boolean;
+  showTramTransit: boolean;
   showBusTransit: boolean;
   railTransitLayer: L.LayerGroup | null;
   busTransitLayer: L.LayerGroup | null;
@@ -20,6 +21,7 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
   transitData,
   isLoading,
   showRailTransit,
+  showTramTransit,
   showBusTransit,
   railTransitLayer,
   busTransitLayer
@@ -46,6 +48,7 @@ const TransitLayerRenderer: React.FC<TransitLayerRendererProps> = ({
         transitData={transitData}
         isLoading={isLoading}
         showRailTransit={showRailTransit}
+        showTramTransit={showTramTransit}
         railTransitLayer={railTransitLayer}
         getTransitColor={getTransitColor}
       />

@@ -8,7 +8,9 @@ import { Train, Bus, Zap, Leaf, UtensilsCrossed } from 'lucide-react';
 const MapControls = () => {
   const { 
     showRailTransit, 
-    toggleRailTransit, 
+    toggleRailTransit,
+    showTramTransit,
+    toggleTramTransit,
     showBusTransit, 
     toggleBusTransit, 
     showVegetarianRestaurants, 
@@ -32,9 +34,9 @@ const MapControls = () => {
         </Button>
 
         <Button
-          variant={showRailTransit ? "default" : "outline"}
+          variant={showTramTransit ? "default" : "outline"}
           size="sm"
-          onClick={toggleRailTransit}
+          onClick={toggleTramTransit}
           className="flex items-center gap-2 w-full justify-start text-xs px-3 py-1.5 min-w-[180px]"
         >
           <Zap size={14} />

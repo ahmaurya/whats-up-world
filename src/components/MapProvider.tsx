@@ -9,6 +9,8 @@ interface MapContextType {
   clearPoints: () => void;
   showRailTransit: boolean;
   toggleRailTransit: () => void;
+  showTramTransit: boolean;
+  toggleTramTransit: () => void;
   showBusTransit: boolean;
   toggleBusTransit: () => void;
   showRestaurants: boolean;
@@ -37,6 +39,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
   const [selectedPoints, setSelectedPoints] = useState<[number, number][]>([]);
   const [pointNames, setPointNames] = useState<string[]>([]);
   const [showRailTransit, setShowRailTransit] = useState(true);
+  const [showTramTransit, setShowTramTransit] = useState(true);
   const [showBusTransit, setShowBusTransit] = useState(true);
   const [showRestaurants, setShowRestaurants] = useState(false);
   const [showVegetarianRestaurants, setShowVegetarianRestaurants] = useState(true);
@@ -86,6 +89,10 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
     setShowRailTransit(prev => !prev);
   };
 
+  const toggleTramTransit = () => {
+    setShowTramTransit(prev => !prev);
+  };
+
   const toggleBusTransit = () => {
     setShowBusTransit(prev => !prev);
   };
@@ -111,6 +118,8 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
       clearPoints,
       showRailTransit,
       toggleRailTransit,
+      showTramTransit,
+      toggleTramTransit,
       showBusTransit,
       toggleBusTransit,
       showRestaurants,

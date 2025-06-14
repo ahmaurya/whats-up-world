@@ -9,6 +9,7 @@ interface RailTransitManagerProps {
   transitData: TransitData | null;
   isLoading: boolean;
   showRailTransit: boolean;
+  showTramTransit: boolean;
   railTransitLayer: L.LayerGroup | null;
   getTransitColor: (type: string) => string;
 }
@@ -18,6 +19,7 @@ const RailTransitManager: React.FC<RailTransitManagerProps> = ({
   transitData,
   isLoading,
   showRailTransit,
+  showTramTransit,
   railTransitLayer,
   getTransitColor
 }) => {
@@ -29,33 +31,22 @@ const RailTransitManager: React.FC<RailTransitManagerProps> = ({
     }
 
     console.log(`🔄 Rail transit visibility toggle: ${showRailTransit ? 'SHOWING' : 'HIDING'} rail transit lines`);
+    console.log(`🔄 Tram transit visibility toggle: ${showTramTransit ? 'SHOWING' : 'HIDING'} tram transit lines`);
 
-    if (showRailTransit && transitData && !isLoading) {
-      console.log('🚇 Adding rail/subway/tram transit lines to map...');
-      
-      // Combine rail transit lines (subway, tram, rail)
-      const railLines = [
-        ...transitData.subway,
-        ...transitData.tram,
-        ...transitData.rail
-      ];
-      
-      return;
-    } else if (!showRailTransit) {
-      console.log('🚇 Hiding all rail transit lines from map');
+    if ((!showRailTransit && !showTramTransit) || !transitData || isLoading) {
+      console.log('🚇 Hiding all rail/tram transit lines from map');
       railTransitLayer.clearLayers();
     }
-  }, [map, showRailTransit, transitData, isLoading, railTransitLayer, getTransitColor]);
+  }, [map, showRailTransit, showTramTransit, transitData, isLoading, railTransitLayer, getTransitColor]);
 
-  if (!showRailTransit || !transitData || isLoading || !railTransitLayer) {
+  if ((!showRailTransit && !showTramTransit) || !transitData || isLoading || !railTransitLayer) {
     return null;
   }
 
-  // Combine rail transit lines (subway, tram, rail)
+  // Combine only the enabled transit lines
   const railLines = [
-    ...transitData.subway,
-    ...transitData.tram,
-    ...transitData.rail
+    ...(showRailTransit ? [...transitData.subway, ...transitData.rail] : []),
+    ...(showTramTransit ? transitData.tram : [])
   ];
 
   return (

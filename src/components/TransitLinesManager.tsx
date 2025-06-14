@@ -11,7 +11,7 @@ interface TransitLinesManagerProps {
 }
 
 const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
-  const { showRailTransit, showBusTransit } = useMap();
+  const { showRailTransit, showTramTransit, showBusTransit } = useMap();
   const { transitData, isLoading } = useTransitData(map);
   const { railTransitLayer, busTransitLayer } = useTransitLayers(map);
 
@@ -21,6 +21,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
       transitData={transitData}
       isLoading={isLoading}
       showRailTransit={showRailTransit}
+      showTramTransit={showTramTransit}
       showBusTransit={showBusTransit}
       railTransitLayer={railTransitLayer}
       busTransitLayer={busTransitLayer}

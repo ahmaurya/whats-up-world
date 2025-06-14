@@ -215,7 +215,7 @@ const Map = () => {
 
     mockRestaurants.forEach((restaurant) => {
       const marker = new mapboxgl.Marker({ color: '#f59e0b' })
-        .setLngLat(restaurant.coordinates)
+        .setLngLat(restaurant.coordinates as [number, number])
         .addTo(map.current!);
 
       marker.getElement().addEventListener('click', () => {

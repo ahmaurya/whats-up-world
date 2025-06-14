@@ -43,6 +43,29 @@ export const useRestaurants = () => {
         isVegetarian: isVegetarianRestaurant(restaurant)
       }));
 
+      // Debug logging for vegetarian classification
+      const vegetarianCount = processedRestaurants.filter(r => r.isVegetarian).length;
+      const nonVegetarianCount = processedRestaurants.filter(r => !r.isVegetarian).length;
+      
+      console.log(`🥬 Vegetarian restaurants found: ${vegetarianCount}`);
+      console.log(`🍖 Non-vegetarian restaurants found: ${nonVegetarianCount}`);
+      console.log(`📊 Total restaurants processed: ${processedRestaurants.length}`);
+      
+      // Log some examples of vegetarian restaurants if found
+      const vegetarianExamples = processedRestaurants.filter(r => r.isVegetarian).slice(0, 3);
+      if (vegetarianExamples.length > 0) {
+        console.log('🥬 Vegetarian restaurant examples:', vegetarianExamples.map(r => `${r.name} (${r.cuisine})`));
+      }
+      
+      // Log some examples of restaurants that might be misclassified
+      processedRestaurants.forEach(restaurant => {
+        const text = `${restaurant.name} ${restaurant.cuisine} ${restaurant.description}`.toLowerCase();
+        const hasVegKeywords = ['vegan', 'vegetarian', 'plant-based', 'veggie', 'salad'].some(keyword => text.includes(keyword));
+        if (hasVegKeywords) {
+          console.log(`🔍 Restaurant with veg keywords: ${restaurant.name} (${restaurant.cuisine}) - Classified as: ${restaurant.isVegetarian ? 'Vegetarian' : 'Non-Vegetarian'}`);
+        }
+      });
+
       setRestaurants(processedRestaurants);
       console.log(`Loaded ${processedRestaurants.length} restaurants from Google Places`);
       
@@ -72,5 +95,12 @@ const isVegetarianRestaurant = (restaurant: Restaurant): boolean => {
   ];
   
   const text = `${restaurant.name} ${restaurant.cuisine} ${restaurant.description}`.toLowerCase();
-  return vegKeywords.some(keyword => text.includes(keyword));
+  const isVeg = vegKeywords.some(keyword => text.includes(keyword));
+  
+  // Debug log for classification
+  if (isVeg) {
+    console.log(`🥬 Classified as vegetarian: ${restaurant.name} - matched keywords in: "${text}"`);
+  }
+  
+  return isVeg;
 };

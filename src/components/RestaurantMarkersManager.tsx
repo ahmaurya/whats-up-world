@@ -5,7 +5,7 @@ import { useMap } from './MapProvider';
 import { useRestaurants, Restaurant } from '@/hooks/useRestaurants';
 
 interface RestaurantMarkersManagerProps {
-  map: React.MutableRefObject<L.Map | null>;
+  map: L.Map | null;
   onRestaurantClick: (restaurant: Restaurant) => void;
 }
 
@@ -18,12 +18,12 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
   const restaurantMarkersRef = useRef<L.Marker[]>([]);
 
   const createRestaurantMarkers = () => {
-    if (!map.current) return;
+    if (!map) return;
 
     // Clear existing markers
     restaurantMarkersRef.current.forEach(marker => {
-      if (map.current!.hasLayer(marker)) {
-        map.current!.removeLayer(marker);
+      if (map.hasLayer(marker)) {
+        map.removeLayer(marker);
       }
     });
     restaurantMarkersRef.current = [];
@@ -71,13 +71,13 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
 
   // Fetch restaurants when map center changes or when restaurants are toggled on
   useEffect(() => {
-    if (!map.current || !showRestaurants) return;
+    if (!map || !showRestaurants) return;
 
     const handleMoveEnd = () => {
-      if (!map.current) return;
+      if (!map) return;
       
-      const center = map.current.getCenter();
-      const zoom = map.current.getZoom();
+      const center = map.getCenter();
+      const zoom = map.getZoom();
       
       // Only fetch if zoomed in enough to see local restaurants
       if (zoom >= 12) {
@@ -86,35 +86,35 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     };
 
     // Fetch restaurants immediately if zoomed in enough
-    const center = map.current.getCenter();
-    const zoom = map.current.getZoom();
+    const center = map.getCenter();
+    const zoom = map.getZoom();
     if (zoom >= 12) {
       fetchRestaurants(center.lat, center.lng);
     }
 
-    map.current.on('moveend', handleMoveEnd);
+    map.on('moveend', handleMoveEnd);
 
     return () => {
-      if (map.current) {
-        map.current.off('moveend', handleMoveEnd);
+      if (map) {
+        map.off('moveend', handleMoveEnd);
       }
     };
   }, [showRestaurants, fetchRestaurants]);
 
   // Update restaurant marker visibility when showRestaurants changes
   useEffect(() => {
-    if (!map.current) return;
+    if (!map) return;
 
     if (showRestaurants) {
       restaurantMarkersRef.current.forEach(marker => {
-        if (!map.current!.hasLayer(marker)) {
-          marker.addTo(map.current!);
+        if (!map.hasLayer(marker)) {
+          marker.addTo(map);
         }
       });
     } else {
       restaurantMarkersRef.current.forEach(marker => {
-        if (map.current!.hasLayer(marker)) {
-          map.current!.removeLayer(marker);
+        if (map.hasLayer(marker)) {
+          map.removeLayer(marker);
         }
       });
     }
@@ -127,7 +127,7 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     // Add markers to map if showRestaurants is true
     if (showRestaurants) {
       restaurantMarkersRef.current.forEach(marker => {
-        marker.addTo(map.current!);
+        marker.addTo(map!);
       });
     }
   }, [restaurants]);

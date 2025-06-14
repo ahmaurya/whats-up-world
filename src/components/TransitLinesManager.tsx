@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import { useMap } from './MapProvider';
@@ -14,6 +15,13 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
   const [transitData, setTransitData] = useState<TransitData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentBounds, setCurrentBounds] = useState<BoundingBox | null>(null);
+
+  // Debug logging for showTransit changes
+  useEffect(() => {
+    console.log('TransitLinesManager: showTransit changed to:', showTransit);
+    console.log('TransitLinesManager: transitLayerRef.current exists:', !!transitLayerRef.current);
+    console.log('TransitLinesManager: map.current exists:', !!map.current);
+  }, [showTransit]);
 
   // Debounced function to fetch data
   const fetchDataForCurrentView = useCallback(async () => {
@@ -43,7 +51,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
     try {
       const data = await fetchTransitData(boundsData);
       setTransitData(data);
-      console.log('Transit data fetched successfully');
+      console.log('Transit data fetched successfully:', data);
     } catch (error) {
       console.error('Failed to fetch transit data:', error);
       // Don't clear existing data on error, keep showing what we have
@@ -54,10 +62,13 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
 
   // Create transit layer from fetched data
   const createTransitLayer = useCallback((data: TransitData): L.LayerGroup => {
+    console.log('Creating transit layer with data:', data);
     const transitLayer = L.layerGroup();
+    let totalLinesAdded = 0;
 
     // Process each transit type
     Object.entries(data).forEach(([type, lines]) => {
+      console.log(`Processing ${type} lines:`, lines.length);
       lines.forEach((line: TransitLine) => {
         if (line.coordinates.length < 2) return;
 
@@ -89,9 +100,11 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
         });
         
         transitLayer.addLayer(polyline);
+        totalLinesAdded++;
       });
     });
 
+    console.log('Transit layer created with', totalLinesAdded, 'lines');
     return transitLayer;
   }, []);
 
@@ -120,11 +133,17 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
 
   // Update transit layer when data changes
   useEffect(() => {
+    console.log('Transit data or showTransit changed');
+    console.log('- transitData exists:', !!transitData);
+    console.log('- showTransit:', showTransit);
+    console.log('- map.current exists:', !!map.current);
+
     if (!map.current || !transitData) return;
 
     // Remove existing layer
     if (transitLayerRef.current) {
       if (map.current.hasLayer(transitLayerRef.current)) {
+        console.log('Removing existing transit layer from map');
         map.current.removeLayer(transitLayerRef.current);
       }
       transitLayerRef.current.clearLayers();
@@ -132,26 +151,42 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
 
     // Create new layer with fetched data
     transitLayerRef.current = createTransitLayer(transitData);
+    console.log('New transit layer created');
 
     // Add layer if transit should be shown
     if (showTransit && transitLayerRef.current) {
+      console.log('Adding transit layer to map');
       transitLayerRef.current.addTo(map.current);
+    } else {
+      console.log('Not adding transit layer (showTransit is false)');
     }
-  }, [transitData, createTransitLayer, showTransit]);
+  }, [transitData, createTransitLayer, showTransit, map]);
 
   // Toggle transit layer visibility when showTransit changes
   useEffect(() => {
-    if (!map.current || !transitLayerRef.current) return;
+    console.log('showTransit toggle effect triggered');
+    console.log('- showTransit:', showTransit);
+    console.log('- map.current exists:', !!map.current);
+    console.log('- transitLayerRef.current exists:', !!transitLayerRef.current);
+
+    if (!map.current || !transitLayerRef.current) {
+      console.log('Early return: missing map or transit layer');
+      return;
+    }
 
     if (showTransit) {
       if (!map.current.hasLayer(transitLayerRef.current)) {
+        console.log('Adding transit layer to map (toggle on)');
         transitLayerRef.current.addTo(map.current);
-        console.log('Transit layer shown');
+      } else {
+        console.log('Transit layer already on map');
       }
     } else {
       if (map.current.hasLayer(transitLayerRef.current)) {
+        console.log('Removing transit layer from map (toggle off)');
         map.current.removeLayer(transitLayerRef.current);
-        console.log('Transit layer hidden');
+      } else {
+        console.log('Transit layer not on map');
       }
     }
   }, [showTransit]);
@@ -164,6 +199,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
 
     const handleMoveEnd = () => {
       const zoom = map.current?.getZoom();
+      console.log('Map moved, zoom level:', zoom);
       // Only fetch data at reasonable zoom levels
       if (zoom && zoom >= 11) {
         // Debounce the fetch to avoid too many requests
@@ -171,6 +207,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
         debounceTimeout = setTimeout(fetchDataForCurrentView, 1000);
       } else {
         // Clear data at low zoom levels to improve performance
+        console.log('Zoom too low, clearing transit data');
         setTransitData(null);
         setCurrentBounds(null);
       }
@@ -178,6 +215,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
 
     // Initial data fetch
     const zoom = map.current.getZoom();
+    console.log('Initial zoom level:', zoom);
     if (zoom >= 11) {
       setTimeout(fetchDataForCurrentView, 500); // Small delay for initial load
     }

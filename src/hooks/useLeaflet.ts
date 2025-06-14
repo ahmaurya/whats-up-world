@@ -6,7 +6,17 @@ import { useMap } from '@/components/MapProvider';
 export const useLeaflet = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
-  const { addPoint } = useMap();
+  
+  // Add safety check for MapProvider context
+  let addPoint: ((point: [number, number]) => void) | null = null;
+  
+  try {
+    const mapContext = useMap();
+    addPoint = mapContext.addPoint;
+  } catch (error) {
+    console.warn('MapProvider context not available yet:', error);
+    addPoint = () => {}; // Fallback function
+  }
 
   const initializeMap = useCallback(() => {
     if (!mapContainer.current) return;
@@ -32,11 +42,13 @@ export const useLeaflet = () => {
             attribution: '© OpenStreetMap contributors'
           }).addTo(map.current);
 
-          // Add click handler
-          map.current.on('click', (e) => {
-            const point: [number, number] = [e.latlng.lng, e.latlng.lat];
-            addPoint(point);
-          });
+          // Add click handler only if addPoint is available
+          if (addPoint) {
+            map.current.on('click', (e) => {
+              const point: [number, number] = [e.latlng.lng, e.latlng.lat];
+              addPoint(point);
+            });
+          }
         },
         (error) => {
           console.warn('Geolocation failed, using default location:', error);
@@ -48,11 +60,13 @@ export const useLeaflet = () => {
             attribution: '© OpenStreetMap contributors'
           }).addTo(map.current);
 
-          // Add click handler
-          map.current.on('click', (e) => {
-            const point: [number, number] = [e.latlng.lng, e.latlng.lat];
-            addPoint(point);
-          });
+          // Add click handler only if addPoint is available
+          if (addPoint) {
+            map.current.on('click', (e) => {
+              const point: [number, number] = [e.latlng.lng, e.latlng.lat];
+              addPoint(point);
+            });
+          }
         },
         {
           enableHighAccuracy: true,
@@ -70,11 +84,13 @@ export const useLeaflet = () => {
         attribution: '© OpenStreetMap contributors'
       }).addTo(map.current);
 
-      // Add click handler
-      map.current.on('click', (e) => {
-        const point: [number, number] = [e.latlng.lng, e.latlng.lat];
-        addPoint(point);
-      });
+      // Add click handler only if addPoint is available
+      if (addPoint) {
+        map.current.on('click', (e) => {
+          const point: [number, number] = [e.latlng.lng, e.latlng.lat];
+          addPoint(point);
+        });
+      }
     }
   }, [addPoint]);
 

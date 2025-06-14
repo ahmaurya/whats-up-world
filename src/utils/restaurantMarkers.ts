@@ -35,8 +35,8 @@ const createPopupContent = (restaurant: Restaurant, markerColor: string): string
   const isVegetarian = restaurant.isVegetarian;
   
   return `
-    <div style="max-width: 240px; min-height: 180px; padding: 8px;">
-      <h3 style="margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">${restaurant.name}</h3>
+    <div style="max-width: 240px; min-height: 200px; padding: 12px; position: relative;">
+      <h3 style="margin: 0 0 8px 0; font-weight: bold; font-size: 14px; padding-right: 20px;">${restaurant.name}</h3>
       <div style="margin-bottom: 6px;">
         <span style="color: #f59e0b; font-weight: bold;">${restaurant.rating > 0 ? restaurant.rating.toFixed(1) : 'N/A'}</span>
         <span style="color: #fbbf24;">★</span>

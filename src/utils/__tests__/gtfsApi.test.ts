@@ -1,4 +1,3 @@
-
 import { fetchTransitData, clearTransitCache } from '../gtfsApi';
 import { BoundingBox } from '@/types/transit';
 

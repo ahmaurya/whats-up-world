@@ -5,7 +5,7 @@ import { transitLines } from '@/utils/transitData';
 import { useMap } from './MapProvider';
 
 interface TransitLinesManagerProps {
-  map: React.MutableRefRef<L.Map | null>;
+  map: React.MutableRefObject<L.Map | null>;
 }
 
 const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {

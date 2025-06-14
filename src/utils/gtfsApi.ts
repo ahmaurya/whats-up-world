@@ -5,15 +5,24 @@ import { overpassClient } from './overpassClient';
 import { transitDataTransformer } from './transitDataTransformer';
 
 export const fetchTransitData = async (bounds: BoundingBox): Promise<TransitData> => {
-  const cacheKey = transitCache.generateKey(bounds.south, bounds.west, bounds.north, bounds.east);
+  // Clean up expired cache entries first
+  transitCache.cleanup();
   
-  // Check cache first
-  const cached = transitCache.get(cacheKey);
-  if (cached) {
-    return cached;
+  // Check if the requested bounds are already covered by cached data
+  const coverageCheck = transitCache.isBoundsCovered(bounds);
+  if (coverageCheck.covered && coverageCheck.cachedData) {
+    console.log('✅ Using cached data that covers the requested area');
+    return coverageCheck.cachedData;
   }
 
-  console.log('🚌 Fetching real King County Metro transit data for bounds:', bounds);
+  // Check exact cache match as fallback
+  const cacheKey = transitCache.generateKey(bounds.south, bounds.west, bounds.north, bounds.east);
+  const exactCached = transitCache.get(cacheKey);
+  if (exactCached) {
+    return exactCached;
+  }
+
+  console.log('🚌 Fetching NEW King County Metro transit data for bounds:', bounds);
   console.log('📍 Bounds:', {
     north: bounds.north,
     south: bounds.south,
@@ -22,8 +31,12 @@ export const fetchTransitData = async (bounds: BoundingBox): Promise<TransitData
   });
 
   try {
-    // Fetch data from Overpass API
-    const overpassData = await overpassClient.fetchTransitRoutes(bounds);
+    // Get optimal bounds to reduce future API calls
+    const optimalBounds = transitCache.getOptimalFetchBounds(bounds);
+    console.log('📈 Fetching with expanded bounds to improve caching:', optimalBounds);
+    
+    // Fetch data from Overpass API using optimal bounds
+    const overpassData = await overpassClient.fetchTransitRoutes(optimalBounds);
     
     // Transform the data
     const transitData = transitDataTransformer.transformOverpassData(overpassData.elements);
@@ -31,15 +44,21 @@ export const fetchTransitData = async (bounds: BoundingBox): Promise<TransitData
     // Log summary
     transitDataTransformer.logTransitDataSummary(transitData);
 
-    console.log('\n🗺️ MAP BOUNDS USED:');
-    console.log(`   North: ${bounds.north}`);
-    console.log(`   South: ${bounds.south}`);
-    console.log(`   East: ${bounds.east}`);
-    console.log(`   West: ${bounds.west}`);
+    console.log('\n🗺️ OPTIMAL FETCH BOUNDS USED:');
+    console.log(`   North: ${optimalBounds.north}`);
+    console.log(`   South: ${optimalBounds.south}`);
+    console.log(`   East: ${optimalBounds.east}`);
+    console.log(`   West: ${optimalBounds.west}`);
     console.log('==========================================');
 
-    // Cache the data
-    transitCache.set(cacheKey, transitData);
+    // Cache the data with the optimal bounds
+    const optimalCacheKey = transitCache.generateKey(
+      optimalBounds.south, 
+      optimalBounds.west, 
+      optimalBounds.north, 
+      optimalBounds.east
+    );
+    transitCache.set(optimalCacheKey, transitData, optimalBounds);
     
     return transitData;
   } catch (error) {

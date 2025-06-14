@@ -44,12 +44,145 @@ serve(async (req) => {
       );
     }
 
-    // Determine search query based on restaurant type
-    let query = '';
+    let allRestaurants: any[] = [];
+
     if (restaurantType === 'vegetarian') {
-      query = 'vegetarian restaurant OR vegan restaurant OR plant-based restaurant';
+      // Multiple comprehensive searches for vegetarian restaurants
+      const vegetarianQueries = [
+        'vegetarian restaurant',
+        'vegan restaurant', 
+        'plant based restaurant',
+        'organic restaurant',
+        'healthy restaurant vegetarian',
+        'salad restaurant',
+        'juice bar restaurant',
+        'raw food restaurant',
+        'macrobiotic restaurant',
+        'farm to table vegetarian'
+      ];
+
+      console.log(`🥬 Performing ${vegetarianQueries.length} comprehensive vegetarian searches...`);
+
+      for (let i = 0; i < vegetarianQueries.length; i++) {
+        const query = vegetarianQueries[i];
+        
+        try {
+          console.log(`Search ${i + 1}/${vegetarianQueries.length}: "${query}"`);
+          
+          const placesUrl = `https://places.googleapis.com/v1/places:searchText`;
+          const requestBody = {
+            textQuery: query,
+            locationBias: {
+              circle: {
+                center: {
+                  latitude: lat,
+                  longitude: lng
+                },
+                radius: radius
+              }
+            },
+            maxResultCount: 50,
+            includedType: "restaurant"
+          };
+
+          const response = await fetch(placesUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': apiKey,
+              'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.rating,places.userRatingCount,places.primaryType,places.formattedAddress,places.types'
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!response.ok) {
+            console.error(`Search "${query}" failed: ${response.status}`);
+            continue;
+          }
+
+          const data = await response.json();
+          const places = data.places || [];
+          
+          console.log(`Found ${places.length} places for "${query}"`);
+          allRestaurants.push(...places);
+
+          // Rate limiting delay between requests
+          if (i < vegetarianQueries.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+
+        } catch (error) {
+          console.error(`Error in search "${query}":`, error);
+          continue;
+        }
+      }
+
     } else if (restaurantType === 'non-vegetarian') {
-      query = 'restaurant';
+      // Enhanced non-vegetarian search
+      const nonVegQueries = [
+        'restaurant',
+        'steakhouse',
+        'seafood restaurant',
+        'burger restaurant',
+        'bbq restaurant',
+        'grill restaurant'
+      ];
+
+      console.log(`🍖 Performing ${nonVegQueries.length} non-vegetarian searches...`);
+
+      for (let i = 0; i < nonVegQueries.length; i++) {
+        const query = nonVegQueries[i];
+        
+        try {
+          console.log(`Search ${i + 1}/${nonVegQueries.length}: "${query}"`);
+          
+          const placesUrl = `https://places.googleapis.com/v1/places:searchText`;
+          const requestBody = {
+            textQuery: query,
+            locationBias: {
+              circle: {
+                center: {
+                  latitude: lat,
+                  longitude: lng
+                },
+                radius: radius
+              }
+            },
+            maxResultCount: 50,
+            includedType: "restaurant"
+          };
+
+          const response = await fetch(placesUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': apiKey,
+              'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.rating,places.userRatingCount,places.primaryType,places.formattedAddress,places.types'
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!response.ok) {
+            console.error(`Search "${query}" failed: ${response.status}`);
+            continue;
+          }
+
+          const data = await response.json();
+          const places = data.places || [];
+          
+          console.log(`Found ${places.length} places for "${query}"`);
+          allRestaurants.push(...places);
+
+          // Rate limiting delay between requests
+          if (i < nonVegQueries.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+
+        } catch (error) {
+          console.error(`Error in search "${query}":`, error);
+          continue;
+        }
+      }
     } else {
       return new Response(
         JSON.stringify({ error: 'Invalid restaurant type. Must be "vegetarian" or "non-vegetarian"' }),
@@ -57,49 +190,15 @@ serve(async (req) => {
       );
     }
 
-    // Add rate limiting delay
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Remove duplicates based on place ID
+    const uniqueRestaurants = allRestaurants.filter((place, index, self) => 
+      index === self.findIndex(p => p.id === place.id)
+    );
 
-    // Make request to Google Places API with increased maxResults
-    const placesUrl = `https://places.googleapis.com/v1/places:searchText`;
-    const requestBody = {
-      textQuery: query,
-      locationBias: {
-        circle: {
-          center: {
-            latitude: lat,
-            longitude: lng
-          },
-          radius: radius
-        }
-      },
-      maxResultCount: 50, // Increased from default 20 to 50
-      includedType: "restaurant"
-    };
-
-    console.log(`Making Google Places API request with query: "${query}" and maxResultCount: 50`);
-
-    const response = await fetch(placesUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.rating,places.userRatingCount,places.primaryType,places.formattedAddress'
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Google Places API error: ${response.status} - ${errorText}`);
-      throw new Error(`Google Places API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const places = data.places || [];
+    console.log(`🔄 After deduplication: ${uniqueRestaurants.length} unique places`);
 
     // Transform places to our restaurant format
-    let restaurants = places.map((place: any, index: number) => ({
+    let restaurants = uniqueRestaurants.map((place: any, index: number) => ({
       id: index + 1,
       name: place.displayName?.text || 'Unknown Restaurant',
       coordinates: [place.location?.longitude || 0, place.location?.latitude || 0],
@@ -107,27 +206,67 @@ serve(async (req) => {
       reviews: place.userRatingCount || 0,
       cuisine: place.primaryType || 'restaurant',
       description: place.formattedAddress || '',
-      restaurantType: restaurantType
+      restaurantType: restaurantType,
+      types: place.types || []
     }));
 
-    // For non-vegetarian requests, filter out vegetarian restaurants based on keywords
+    // For non-vegetarian requests, filter out vegetarian restaurants based on keywords and types
     if (restaurantType === 'non-vegetarian') {
       const vegetarianKeywords = [
         'vegetarian', 'vegan', 'plant-based', 'veggie', 'herbivore',
-        'plant based', 'raw food', 'green cuisine', 'salad bar'
+        'plant based', 'raw food', 'green cuisine', 'salad bar', 'juice bar'
+      ];
+      
+      const vegetarianTypes = [
+        'vegetarian_restaurant', 'vegan_restaurant', 'health_food_restaurant'
       ];
       
       restaurants = restaurants.filter((restaurant: any) => {
         const name = restaurant.name.toLowerCase();
         const description = restaurant.description.toLowerCase();
+        const types = restaurant.types || [];
+        
         const hasVegKeyword = vegetarianKeywords.some(keyword => 
           name.includes(keyword) || description.includes(keyword)
         );
-        return !hasVegKeyword;
+        
+        const hasVegType = types.some((type: string) => 
+          vegetarianTypes.some(vegType => type.includes(vegType))
+        );
+        
+        return !hasVegKeyword && !hasVegType;
       });
     }
 
-    console.log(`Found ${restaurants.length} ${restaurantType} restaurants from Google Places`);
+    // For vegetarian requests, enhance filtering to ensure relevance
+    if (restaurantType === 'vegetarian') {
+      const vegetarianKeywords = [
+        'vegetarian', 'vegan', 'plant-based', 'veggie', 'organic',
+        'healthy', 'salad', 'juice', 'raw', 'farm to table', 'natural'
+      ];
+      
+      // Prioritize restaurants that explicitly mention vegetarian terms
+      restaurants = restaurants.map((restaurant: any) => {
+        const name = restaurant.name.toLowerCase();
+        const description = restaurant.description.toLowerCase();
+        const types = restaurant.types || [];
+        
+        const hasVegKeyword = vegetarianKeywords.some(keyword => 
+          name.includes(keyword) || description.includes(keyword)
+        );
+        
+        const hasVegType = types.some((type: string) => 
+          type.includes('vegetarian') || type.includes('vegan') || type.includes('health')
+        );
+        
+        return {
+          ...restaurant,
+          relevanceScore: (hasVegKeyword ? 2 : 0) + (hasVegType ? 1 : 0)
+        };
+      }).sort((a, b) => b.relevanceScore - a.relevanceScore);
+    }
+
+    console.log(`✅ Final result: ${restaurants.length} ${restaurantType} restaurants`);
 
     return new Response(
       JSON.stringify({ restaurants }),

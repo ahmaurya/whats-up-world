@@ -18,6 +18,7 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
   const restaurantMarkersRef = useRef<L.Marker[]>([]);
   const lastFetchedBoundsRef = useRef<L.LatLngBounds | null>(null);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitialFetchRef = useRef(false);
 
   const createRestaurantMarkers = useCallback(() => {
     if (!map) return;
@@ -134,12 +135,40 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
     }, 500); // 500ms debounce
   }, [map, showVegetarianRestaurants, showNonVegetarianRestaurants, fetchRestaurants, shouldFetchRestaurants]);
 
+  // Initial fetch when map is ready and toggles are set
+  useEffect(() => {
+    if (!map || hasInitialFetchRef.current) return;
+    
+    // Wait a bit for map to be fully initialized
+    const initialFetchTimeout = setTimeout(() => {
+      const zoom = map.getZoom();
+      
+      // Only do initial fetch if zoom is adequate and at least one toggle is on
+      if (zoom >= 12 && (showVegetarianRestaurants || showNonVegetarianRestaurants)) {
+        const center = map.getCenter();
+        console.log(`Initial restaurant fetch at: ${center.lat}, ${center.lng}`);
+        
+        fetchRestaurants(
+          center.lat, 
+          center.lng, 
+          5000, 
+          showVegetarianRestaurants, 
+          showNonVegetarianRestaurants
+        );
+        
+        hasInitialFetchRef.current = true;
+        lastFetchedBoundsRef.current = map.getBounds();
+      }
+    }, 1000); // 1 second delay to ensure map is ready
+
+    return () => {
+      clearTimeout(initialFetchTimeout);
+    };
+  }, [map, showVegetarianRestaurants, showNonVegetarianRestaurants, fetchRestaurants]);
+
   // Set up map event listeners for dynamic fetching
   useEffect(() => {
     if (!map) return;
-
-    // Initial fetch if zoom is adequate and toggles are on
-    handleMapChange();
 
     // Listen to map events
     map.on('moveend', handleMapChange);

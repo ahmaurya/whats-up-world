@@ -6,7 +6,7 @@ import { fetchTransitData } from '@/utils/overpassApi';
 import { TransitData, TransitLine } from '@/types/transit';
 
 interface TransitLinesManagerProps {
-  map: React.MutableRefRef<L.Map | null>;
+  map: React.MutableRefObject<L.Map | null>;
 }
 
 const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {

@@ -6,6 +6,8 @@ import { useMap } from './MapProvider';
 const DistanceDisplay = () => {
   const { selectedPoints, pointNames } = useMap();
 
+  console.log('DistanceDisplay render - selectedPoints:', selectedPoints.length);
+
   const calculateDistance = (point1: [number, number], point2: [number, number]) => {
     const [lon1, lat1] = point1;
     const [lon2, lat2] = point2;
@@ -27,8 +29,9 @@ const DistanceDisplay = () => {
 
   // Show default state when no points are selected
   if (selectedPoints.length === 0) {
+    console.log('Showing default distance calculator state');
     return (
-      <Card className="absolute bottom-4 left-4 p-4 z-10 bg-white/95 backdrop-blur-sm">
+      <Card className="absolute bottom-4 left-4 p-4 z-10 bg-white/95 backdrop-blur-sm border-2 border-blue-500">
         <div className="space-y-2">
           <p className="text-sm font-medium">Distance Calculator</p>
           <p className="text-sm text-gray-600">
@@ -41,6 +44,7 @@ const DistanceDisplay = () => {
 
   // Show progress when we have one point
   if (selectedPoints.length === 1) {
+    console.log('Showing one point selected state');
     return (
       <Card className="absolute bottom-4 left-4 p-4 z-10 bg-white/95 backdrop-blur-sm">
         <div className="space-y-2">
@@ -59,6 +63,7 @@ const DistanceDisplay = () => {
   // Show distance calculation when we have two points
   const distance = calculateDistance(selectedPoints[0], selectedPoints[1]);
 
+  console.log('Showing distance calculation:', distance);
   return (
     <Card className="absolute bottom-4 left-4 p-4 z-10 bg-white/95 backdrop-blur-sm">
       <div className="space-y-2">

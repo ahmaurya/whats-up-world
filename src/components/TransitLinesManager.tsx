@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { useTransitStore } from '@/hooks/useTransitStore';
+import { useMap } from './MapProvider';
 import { fetchTransitData } from '@/utils/gtfsApi';
 import { TransitData, BoundingBox } from '@/types/transit';
 
@@ -10,7 +10,7 @@ interface TransitLinesManagerProps {
 }
 
 const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
-  const { showTransit } = useTransitStore();
+  const { showTransit } = useMap();
   const transitLayerRef = useRef<L.LayerGroup | null>(null);
   const [transitData, setTransitData] = useState<TransitData | null>(null);
 

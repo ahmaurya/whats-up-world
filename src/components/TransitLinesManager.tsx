@@ -10,20 +10,13 @@ interface TransitLinesManagerProps {
 
 const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
   const { showTransit } = useMap();
-  const transitLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const transitLayerRef = useRef<L.LayerGroup | null>(null);
 
-  const createTransitLines = () => {
+  const createTransitLayer = () => {
     if (!map.current) return;
 
-    // Clear existing transit layer group
-    if (transitLayerGroupRef.current) {
-      if (map.current.hasLayer(transitLayerGroupRef.current)) {
-        map.current.removeLayer(transitLayerGroupRef.current);
-      }
-    }
-
-    // Create new layer group for all transit lines
-    transitLayerGroupRef.current = L.layerGroup();
+    // Create a single layer group for all transit lines
+    const transitLayer = L.layerGroup();
 
     Object.entries(transitLines).forEach(([city, lines]) => {
       // Add subway lines
@@ -41,7 +34,7 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
           className: 'transit-tooltip'
         });
         
-        transitLayerGroupRef.current!.addLayer(subwayLine);
+        transitLayer.addLayer(subwayLine);
       });
 
       // Add bus lines
@@ -60,32 +53,36 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
           className: 'transit-tooltip'
         });
         
-        transitLayerGroupRef.current!.addLayer(busLine);
+        transitLayer.addLayer(busLine);
       });
     });
+
+    return transitLayer;
   };
 
-  // Initialize transit lines when map is ready
+  // Initialize transit layer when map is ready
   useEffect(() => {
-    if (map.current && !transitLayerGroupRef.current) {
-      createTransitLines();
+    if (map.current && !transitLayerRef.current) {
+      transitLayerRef.current = createTransitLayer();
     }
   }, [map.current]);
 
-  // Update transit line visibility when showTransit changes
+  // Toggle transit layer visibility when showTransit changes
   useEffect(() => {
-    if (!map.current || !transitLayerGroupRef.current) return;
+    if (!map.current || !transitLayerRef.current) return;
 
     if (showTransit) {
-      if (!map.current.hasLayer(transitLayerGroupRef.current)) {
-        transitLayerGroupRef.current.addTo(map.current);
+      // Add the layer to the map if it's not already there
+      if (!map.current.hasLayer(transitLayerRef.current)) {
+        transitLayerRef.current.addTo(map.current);
       }
     } else {
-      if (map.current.hasLayer(transitLayerGroupRef.current)) {
-        map.current.removeLayer(transitLayerGroupRef.current);
+      // Remove the layer from the map if it's there
+      if (map.current.hasLayer(transitLayerRef.current)) {
+        map.current.removeLayer(transitLayerRef.current);
       }
     }
-  }, [showTransit, map.current]);
+  }, [showTransit]);
 
   return null;
 };

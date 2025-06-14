@@ -34,7 +34,7 @@ export const useLeaflet = () => {
           const { latitude, longitude } = position.coords;
           console.log(`User location: ${latitude}, ${longitude}`);
           
-          // Initialize map centered on user's location with higher zoom
+          // Initialize map centered on user's location with zoom level 13
           map.current = L.map(mapContainer.current!).setView([latitude, longitude], 13);
           
           // Add OpenStreetMap tiles
@@ -52,8 +52,8 @@ export const useLeaflet = () => {
         },
         (error) => {
           console.warn('Geolocation failed, using default location:', error);
-          // Fall back to default location (center of US)
-          map.current = L.map(mapContainer.current!).setView([39.8283, -98.5795], 4);
+          // Fall back to default location with zoom level 13
+          map.current = L.map(mapContainer.current!).setView([39.8283, -98.5795], 13);
           
           // Add OpenStreetMap tiles
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -76,8 +76,8 @@ export const useLeaflet = () => {
       );
     } else {
       console.warn('Geolocation not supported, using default location');
-      // Fall back to default location
-      map.current = L.map(mapContainer.current!).setView([39.8283, -98.5795], 4);
+      // Fall back to default location with zoom level 13
+      map.current = L.map(mapContainer.current!).setView([39.8283, -98.5795], 13);
       
       // Add OpenStreetMap tiles
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

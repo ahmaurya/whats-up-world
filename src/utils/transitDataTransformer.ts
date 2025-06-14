@@ -1,4 +1,3 @@
-
 import { TransitLine, TransitData, OverpassElement, OverpassRelation, OverpassNode, OverpassWay } from '@/types/transit';
 
 export class TransitDataTransformer {
@@ -70,18 +69,20 @@ export class TransitDataTransformer {
     const coordinates: [number, number][] = [];
     
     if (relation.members) {
-      console.log(`🔗 Processing ${relation.members.length} members`);
+      console.log(`🔗 Processing ${relation.members.length} members for relation ${relation.tags?.ref || relation.id}`);
       
-      relation.members.forEach((member, memberIndex) => {
-        if (member.type === 'way') {
-          const way = ways.get(member.ref);
-          if (way) {
-            const wayCoords = this.extractCoordinatesFromWay(way, nodes);
-            coordinates.push(...wayCoords);
-            console.log(`  📍 Way ${memberIndex + 1}: Added ${wayCoords.length} coordinates`);
-          } else {
-            console.log(`  ❌ Way ${member.ref} not found in dataset`);
-          }
+      // Filter for way members only (bus routes typically use ways)
+      const wayMembers = relation.members.filter(member => member.type === 'way');
+      console.log(`📍 Found ${wayMembers.length} way members out of ${relation.members.length} total members`);
+      
+      wayMembers.forEach((member, memberIndex) => {
+        const way = ways.get(member.ref);
+        if (way) {
+          const wayCoords = this.extractCoordinatesFromWay(way, nodes);
+          coordinates.push(...wayCoords);
+          console.log(`  📍 Way ${memberIndex + 1}/${wayMembers.length}: Added ${wayCoords.length} coordinates (Role: ${member.role || 'none'})`);
+        } else {
+          console.log(`  ❌ Way ${member.ref} not found in dataset (Role: ${member.role || 'none'})`);
         }
       });
     }
@@ -122,6 +123,17 @@ export class TransitDataTransformer {
 
     console.log(`🔍 Found ${relations.length} transit relations, ${ways.length} ways, ${nodeElements.length} nodes`);
 
+    // Specifically look for bus relations
+    const busRelations = relations.filter(rel => rel.tags?.route === 'bus');
+    console.log(`🚌 Bus relations specifically found: ${busRelations.length}`);
+    
+    if (busRelations.length > 0) {
+      console.log('🚌 Bus routes to process:');
+      busRelations.forEach((bus, i) => {
+        console.log(`   ${i + 1}. Route ${bus.tags?.ref || 'Unknown'}: "${bus.tags?.name || 'Unnamed'}" (${bus.tags?.operator || 'Unknown operator'})`);
+      });
+    }
+
     // Process relations (transit routes)
     relations.forEach((relation, index) => {
       console.log(`\n🚌 Processing relation ${index + 1}/${relations.length}:`, relation.tags?.name || `ID: ${relation.id}`);
@@ -142,14 +154,24 @@ export class TransitDataTransformer {
       const routeName = relation.tags.name || relation.tags.ref || `Route ${relation.id}`;
       const operator = relation.tags.operator || relation.tags.network || 'Unknown';
       const color = relation.tags.colour || this.getDefaultColor(routeType);
+      const routeRef = relation.tags.ref;
 
       console.log(`📋 Route Details:`, {
         type: routeType,
         name: routeName,
+        ref: routeRef,
         operator: operator,
         color: color,
-        network: relation.tags.network
+        network: relation.tags.network,
+        memberCount: relation.members?.length || 0
       });
+
+      // Special handling for bus routes
+      if (routeType === 'bus') {
+        console.log(`🚌 Processing BUS ROUTE: ${routeRef ? `Route ${routeRef}` : routeName}`);
+        console.log(`🏢 Operator: ${operator}`);
+        console.log(`👥 Members: ${relation.members?.length || 0}`);
+      }
 
       const coordinates = this.extractCoordinatesFromRelation(relation, nodes, waysMap);
       console.log(`📍 Total coordinates extracted: ${coordinates.length}`);
@@ -173,7 +195,7 @@ export class TransitDataTransformer {
             break;
           case 'bus':
             transitData.bus.push(transitLine);
-            console.log(`✅ Added to bus: ${routeName}`);
+            console.log(`✅ Added to bus: ${routeName} (Route ${routeRef || 'Unknown'})`);
             break;
           case 'tram':
             transitData.tram.push(transitLine);
@@ -185,7 +207,10 @@ export class TransitDataTransformer {
             break;
         }
       } else {
-        console.log(`❌ Insufficient coordinates for ${routeName} (${coordinates.length} points)`);
+        console.log(`❌ Insufficient coordinates for ${routeName} (${coordinates.length} points) - Route type: ${routeType}`);
+        if (routeType === 'bus') {
+          console.log(`🚌 BUS ROUTE FAILED: ${routeRef ? `Route ${routeRef}` : routeName} - only ${coordinates.length} coordinates`);
+        }
       }
     });
 
@@ -273,9 +298,27 @@ export class TransitDataTransformer {
     if (transitData.bus.length > 0) {
       console.log('\n🚌 BUS ROUTES:');
       transitData.bus.forEach((line, i) => {
-        console.log(`${i + 1}. ${line.name} (${line.operator})`);
+        console.log(`${i + 1}. ${line.name} ${line.ref ? `(Route ${line.ref})` : ''} (${line.operator})`);
         console.log(`   Color: ${line.color}, Coordinates: ${line.coordinates.length}`);
       });
+      
+      // Check for specific routes user asked about
+      const targetRoutes = ['40', '62', '1', '2', '5'];
+      console.log('\n🎯 CHECKING FOR SPECIFIC ROUTES:');
+      targetRoutes.forEach(routeNum => {
+        const found = transitData.bus.find(bus => bus.ref === routeNum);
+        if (found) {
+          console.log(`✅ Route ${routeNum}: FOUND - ${found.name} (${found.coordinates.length} coordinates)`);
+        } else {
+          console.log(`❌ Route ${routeNum}: NOT FOUND`);
+        }
+      });
+    } else {
+      console.log('\n⚠️ NO BUS ROUTES FOUND!');
+      console.log('This could indicate:');
+      console.log('1. No bus routes in the current map bounds');
+      console.log('2. Bus route data not available in OpenStreetMap for this area');
+      console.log('3. Bus routes not properly tagged in OSM data');
     }
 
     if (transitData.tram.length > 0) {

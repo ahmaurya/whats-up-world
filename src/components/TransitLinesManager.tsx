@@ -5,7 +5,7 @@ import { transitLines } from '@/utils/transitData';
 import { useMap } from './MapProvider';
 
 interface TransitLinesManagerProps {
-  map: React.MutableRefRef<L.Map | null>;
+  map: React.MutableRefObject<L.Map | null>;
 }
 
 const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
@@ -25,11 +25,18 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
 
     Object.entries(transitLines).forEach(([city, lines]) => {
       // Add subway lines
-      lines.subway.forEach((line) => {
+      lines.subway.forEach((line, index) => {
         const subwayLine = L.polyline(line.map(coord => [coord[1], coord[0]]), {
           color: '#3b82f6',
           weight: 4,
           opacity: 0.8
+        });
+        
+        // Add hover tooltip
+        subwayLine.bindTooltip(`${city.charAt(0).toUpperCase() + city.slice(1)} Subway Line ${index + 1}`, {
+          permanent: false,
+          direction: 'top',
+          className: 'transit-tooltip'
         });
         
         const layerGroup = L.layerGroup([subwayLine]);
@@ -37,12 +44,19 @@ const TransitLinesManager: React.FC<TransitLinesManagerProps> = ({ map }) => {
       });
 
       // Add bus lines
-      lines.bus.forEach((line) => {
+      lines.bus.forEach((line, index) => {
         const busLine = L.polyline(line.map(coord => [coord[1], coord[0]]), {
           color: '#10b981',
           weight: 3,
           opacity: 0.8,
           dashArray: '5, 5'
+        });
+        
+        // Add hover tooltip
+        busLine.bindTooltip(`${city.charAt(0).toUpperCase() + city.slice(1)} Bus Route ${index + 1}`, {
+          permanent: false,
+          direction: 'top',
+          className: 'transit-tooltip'
         });
         
         const layerGroup = L.layerGroup([busLine]);

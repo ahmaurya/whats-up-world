@@ -38,6 +38,29 @@ const RestaurantMarkersManager: React.FC<RestaurantMarkersManagerProps> = ({
         })
       });
 
+      // Add popup with restaurant description
+      const popupContent = `
+        <div style="max-width: 200px;">
+          <h3 style="margin: 0 0 8px 0; font-weight: bold; font-size: 14px;">${restaurant.name}</h3>
+          <div style="margin-bottom: 6px;">
+            <span style="color: #f59e0b; font-weight: bold;">${restaurant.rating > 0 ? restaurant.rating.toFixed(1) : 'N/A'}</span>
+            <span style="color: #fbbf24;">★</span>
+            <span style="color: #666; font-size: 12px; margin-left: 4px;">(${restaurant.reviews.toLocaleString()} reviews)</span>
+          </div>
+          <div style="margin-bottom: 6px; font-size: 12px;">
+            <strong>Cuisine:</strong> ${restaurant.cuisine}
+          </div>
+          <div style="font-size: 12px; color: #666;">
+            ${restaurant.description}
+          </div>
+        </div>
+      `;
+
+      marker.bindPopup(popupContent, {
+        maxWidth: 250,
+        className: 'restaurant-popup'
+      });
+
       marker.on('click', () => {
         onRestaurantClick(restaurant);
       });

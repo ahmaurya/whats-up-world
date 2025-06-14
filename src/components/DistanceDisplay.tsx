@@ -25,9 +25,18 @@ const DistanceDisplay = () => {
     return distance;
   };
 
-  // Only show the card if we have at least one point
+  // Show default state when no points are selected
   if (selectedPoints.length === 0) {
-    return null;
+    return (
+      <Card className="absolute bottom-4 left-4 p-4 z-10 bg-white/95 backdrop-blur-sm">
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Distance Calculator</p>
+          <p className="text-sm text-gray-600">
+            Click on the map or enter addresses to calculate distance between two points
+          </p>
+        </div>
+      </Card>
+    );
   }
 
   // Show progress when we have one point

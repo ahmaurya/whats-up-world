@@ -27,6 +27,20 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Input validation utilities
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+  return emailRegex.test(email) && email.length <= 254;
+};
+
+const validatePassword = (password: string): boolean => {
+  return password.length >= 6 && password.length <= 128;
+};
+
+const sanitizeInput = (input: string): string => {
+  return input.trim().replace(/[<>]/g, '');
+};
+
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -36,9 +50,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        
+        // Log security events
+        if (event === 'SIGNED_IN') {
+          console.log('User signed in successfully');
+        } else if (event === 'SIGNED_OUT') {
+          console.log('User signed out');
+        }
       }
     );
 
@@ -53,42 +75,118 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      // Input validation and sanitization
+      const sanitizedEmail = sanitizeInput(email).toLowerCase();
+      const sanitizedPassword = sanitizeInput(password);
+      
+      if (!validateEmail(sanitizedEmail)) {
+        return { error: { message: 'Please enter a valid email address' } };
+      }
+      
+      if (!validatePassword(sanitizedPassword)) {
+        return { error: { message: 'Password must be between 6 and 128 characters' } };
+      }
+
+      console.log('Attempting sign in for user:', sanitizedEmail);
+      
+      const { error } = await supabase.auth.signInWithPassword({
+        email: sanitizedEmail,
+        password: sanitizedPassword,
+      });
+      
+      if (error) {
+        console.error('Sign in error:', error.message);
+      }
+      
+      return { error };
+    } catch (error) {
+      console.error('Unexpected sign in error:', error);
+      return { error: { message: 'An unexpected error occurred' } };
+    }
   };
 
   const signUp = async (email: string, password: string, fullName?: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: fullName ? { full_name: fullName } : undefined,
+    try {
+      // Input validation and sanitization
+      const sanitizedEmail = sanitizeInput(email).toLowerCase();
+      const sanitizedPassword = sanitizeInput(password);
+      const sanitizedFullName = fullName ? sanitizeInput(fullName) : undefined;
+      
+      if (!validateEmail(sanitizedEmail)) {
+        return { error: { message: 'Please enter a valid email address' } };
       }
-    });
-    return { error };
+      
+      if (!validatePassword(sanitizedPassword)) {
+        return { error: { message: 'Password must be between 6 and 128 characters' } };
+      }
+      
+      if (sanitizedFullName && sanitizedFullName.length > 100) {
+        return { error: { message: 'Full name must be less than 100 characters' } };
+      }
+
+      const redirectUrl = `${window.location.origin}/`;
+      
+      console.log('Attempting sign up for user:', sanitizedEmail);
+      
+      const { error } = await supabase.auth.signUp({
+        email: sanitizedEmail,
+        password: sanitizedPassword,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: sanitizedFullName ? { full_name: sanitizedFullName } : undefined,
+        }
+      });
+      
+      if (error) {
+        console.error('Sign up error:', error.message);
+      }
+      
+      return { error };
+    } catch (error) {
+      console.error('Unexpected sign up error:', error);
+      return { error: { message: 'An unexpected error occurred' } };
+    }
   };
 
   const signInWithGoogle = async () => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      console.log('Attempting Google sign in');
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+        }
+      });
+      
+      if (error) {
+        console.error('Google sign in error:', error.message);
       }
-    });
-    return { error };
+      
+      return { error };
+    } catch (error) {
+      console.error('Unexpected Google sign in error:', error);
+      return { error: { message: 'An unexpected error occurred' } };
+    }
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
+    try {
+      console.log('User signing out');
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Sign out error:', error.message);
+      }
+      
+      return { error };
+    } catch (error) {
+      console.error('Unexpected sign out error:', error);
+      return { error: { message: 'An unexpected error occurred' } };
+    }
   };
 
   return (

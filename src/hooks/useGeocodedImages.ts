@@ -22,7 +22,7 @@ export const useGeocodedImages = (bounds?: ImageSearchParams['bounds']) => {
     const fetchImages = async () => {
       setLoading(true);
       setError(null);
-      setImages([]); // Clear existing images when bounds change
+      // DON'T clear existing images - let them accumulate and be managed by the component
       
       try {
         await imageDataService.fetchAllImagesProgressive(

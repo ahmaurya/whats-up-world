@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { useGeocodedImages } from '@/hooks/useGeocodedImages';
@@ -16,7 +15,8 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
   const [mapBounds, setMapBounds] = useState<any>(null);
-  const lastImagesRef = useRef<Map<string, GeocodedImage>>(new Map());
+  const [lastFetchBounds, setLastFetchBounds] = useState<any>(null);
+  const [displayedImages, setDisplayedImages] = useState<GeocodedImage[]>([]);
 
   // Get current map bounds for image fetching
   useEffect(() => {
@@ -24,45 +24,90 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
 
     const updateBounds = () => {
       const bounds = map.getBounds();
-      setMapBounds({
+      const currentBounds = {
         north: bounds.getNorth(),
         south: bounds.getSouth(),
         east: bounds.getEast(),
         west: bounds.getWest()
-      });
+      };
+      
+      // Only trigger fetch if bounds changed significantly (more than ~500m)
+      if (!lastFetchBounds || shouldFetchNewImages(currentBounds, lastFetchBounds)) {
+        console.log('🗺️ Map bounds changed significantly, updating image fetch bounds');
+        setMapBounds(currentBounds);
+        setLastFetchBounds(currentBounds);
+      }
     };
 
-    // Update bounds initially and on map move
+    // Update bounds initially and on map move with debouncing
     updateBounds();
-    map.on('moveend', updateBounds);
+    
+    let moveTimeout: NodeJS.Timeout;
+    const debouncedUpdate = () => {
+      clearTimeout(moveTimeout);
+      moveTimeout = setTimeout(updateBounds, 500); // 500ms debounce
+    };
+    
+    map.on('moveend', debouncedUpdate);
 
     return () => {
-      map.off('moveend', updateBounds);
+      map.off('moveend', debouncedUpdate);
+      clearTimeout(moveTimeout);
     };
-  }, [map]);
+  }, [map, lastFetchBounds]);
 
-  // Fetch images based on current map bounds
+  // Check if we should fetch new images based on bounds change
+  const shouldFetchNewImages = (currentBounds: any, lastBounds: any): boolean => {
+    if (!lastBounds) return true;
+    
+    const currentCenter = {
+      lat: (currentBounds.north + currentBounds.south) / 2,
+      lng: (currentBounds.east + currentBounds.west) / 2
+    };
+    
+    const lastCenter = {
+      lat: (lastBounds.north + lastBounds.south) / 2,
+      lng: (lastBounds.west + lastBounds.east) / 2
+    };
+    
+    // Calculate distance moved (rough approximation)
+    const latDiff = Math.abs(currentCenter.lat - lastCenter.lat);
+    const lngDiff = Math.abs(currentCenter.lng - lastCenter.lng);
+    const threshold = 0.005; // Roughly 500m
+    
+    return latDiff > threshold || lngDiff > threshold;
+  };
+
+  // Fetch images based on current map bounds - only when bounds change significantly
   const { images, loading, error } = useGeocodedImages(mapBounds);
 
-  // Function to select up to 100 images spread evenly across the map
-  const selectDistributedImages = (allImages: GeocodedImage[], maxImages: number = 100): GeocodedImage[] => {
-    if (allImages.length <= maxImages) {
-      return allImages;
+  // Function to select up to 100 images spread evenly across the current view
+  const selectDistributedImages = (allImages: GeocodedImage[], currentViewBounds: any, maxImages: number = 100): GeocodedImage[] => {
+    if (!currentViewBounds) return allImages.slice(0, maxImages);
+    
+    // Filter images to only those currently visible
+    const visibleImages = allImages.filter(image => 
+      image.latitude >= currentViewBounds.south && 
+      image.latitude <= currentViewBounds.north &&
+      image.longitude >= currentViewBounds.west && 
+      image.longitude <= currentViewBounds.east
+    );
+
+    if (visibleImages.length <= maxImages) {
+      return visibleImages;
     }
 
-    if (!mapBounds) return allImages.slice(0, maxImages);
-
     // Create a grid to distribute images evenly
-    const gridSize = Math.ceil(Math.sqrt(maxImages)); // e.g., 10x10 grid for 100 images
-    const latStep = (mapBounds.north - mapBounds.south) / gridSize;
-    const lngStep = (mapBounds.east - mapBounds.west) / gridSize;
+    const gridSize = Math.ceil(Math.sqrt(maxImages));
+    const latStep = (currentViewBounds.north - currentViewBounds.south) / gridSize;
+    const lngStep = (currentViewBounds.east - currentViewBounds.west) / gridSize;
 
     const grid: Map<string, GeocodedImage[]> = new Map();
 
     // Group images by grid cells
-    allImages.forEach(image => {
-      const latIndex = Math.floor((image.latitude - mapBounds.south) / latStep);
-      const lngIndex = Math.floor((image.longitude - mapBounds.west) / lngStep);
+    visibleImages.forEach(image => {
+      const latIndex = Math.floor((image.latitude - currentViewBounds.south) / latStep);
+      const lngIndex = Math.floor((image.longitude - currentViewBounds.west) / lngStep);
       const gridKey = `${Math.max(0, Math.min(gridSize - 1, latIndex))}_${Math.max(0, Math.min(gridSize - 1, lngIndex))}`;
       
       if (!grid.has(gridKey)) {
@@ -71,23 +116,57 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
       grid.get(gridKey)!.push(image);
     });
 
-    // Select one image from each grid cell, prioritizing cells with fewer images
+    // Select one image from each grid cell
     const selectedImages: GeocodedImage[] = [];
     const gridCells = Array.from(grid.entries()).sort((a, b) => a[1].length - b[1].length);
 
     for (const [_, cellImages] of gridCells) {
       if (selectedImages.length >= maxImages) break;
-      
-      // Select the first image from this cell (could be randomized)
       selectedImages.push(cellImages[0]);
     }
 
-    console.log(`🖼️ Selected ${selectedImages.length} images from ${allImages.length} total for even distribution`);
     return selectedImages;
   };
 
+  // Gradually update displayed images when new images arrive
+  useEffect(() => {
+    if (!map) return;
+
+    const currentViewBounds = map.getBounds();
+    const currentBounds = {
+      north: currentViewBounds.getNorth(),
+      south: currentViewBounds.getSouth(),
+      east: currentViewBounds.getEast(),
+      west: currentViewBounds.getWest()
+    };
+
+    // Select images for current view
+    const newSelectedImages = selectDistributedImages(images, currentBounds, 100);
+    
+    // Gradually transition to new image set
+    setDisplayedImages(prev => {
+      // Keep existing images that are still in the new selection
+      const existingImageIds = new Set(prev.map(img => img.id));
+      const newImageIds = new Set(newSelectedImages.map(img => img.id));
+      
+      // Images to keep (intersection)
+      const imagesToKeep = prev.filter(img => newImageIds.has(img.id));
+      
+      // New images to add
+      const imagesToAdd = newSelectedImages.filter(img => !existingImageIds.has(img.id));
+      
+      // Combine keeping priority to existing images, then add new ones up to limit
+      const combined = [...imagesToKeep, ...imagesToAdd].slice(0, 100);
+      
+      if (combined.length !== prev.length) {
+        console.log(`🖼️ Gradually updating images: ${imagesToKeep.length} kept, ${imagesToAdd.length} added, ${combined.length} total`);
+      }
+      
+      return combined;
+    });
+  }, [images, map]);
+
   const createImageMarker = (image: GeocodedImage): L.Marker => {
-    // Create custom icon for the thumbnail with source-specific styling
     const sourceColors = {
       flickr: 'border-pink-500',
       mapillary: 'border-green-500', 
@@ -140,6 +219,7 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
     return marker;
   };
 
+  // Update markers based on displayed images
   useEffect(() => {
     if (!map || !visible) return;
 
@@ -151,16 +231,13 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
       map.addLayer(layerGroupRef.current);
     }
 
-    // Select up to 100 distributed images
-    const displayImages = selectDistributedImages(images, 100);
-
-    // Create a map of current images for easy lookup
+    // Create a map of current displayed images
     const currentImagesMap = new Map<string, GeocodedImage>();
-    displayImages.forEach(image => {
+    displayedImages.forEach(image => {
       currentImagesMap.set(image.id, image);
     });
 
-    // Remove markers that are no longer in the current image set
+    // Remove markers that are no longer in the displayed image set
     const markersToRemove: string[] = [];
     markersRef.current.forEach((marker, imageId) => {
       if (!currentImagesMap.has(imageId)) {
@@ -174,7 +251,7 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
 
     // Add new markers for images that aren't already displayed
     let newMarkersCount = 0;
-    displayImages.forEach(image => {
+    displayedImages.forEach(image => {
       if (!markersRef.current.has(image.id)) {
         const marker = createImageMarker(image);
         markersRef.current.set(image.id, marker);
@@ -186,17 +263,16 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
       }
     });
 
-    // Update the reference to current images
-    lastImagesRef.current = currentImagesMap;
-
-    console.log(`🖼️ Updated geocoded images: ${newMarkersCount} new, ${markersToRemove.length} removed, ${displayImages.length} displayed (${images.length} total cached)`);
+    if (newMarkersCount > 0 || markersToRemove.length > 0) {
+      console.log(`🖼️ Updated geocoded images: ${newMarkersCount} new, ${markersToRemove.length} removed, ${displayedImages.length} displayed`);
+    }
 
     return () => {
       if (layerGroupRef.current && map && !visible) {
         map.removeLayer(layerGroupRef.current);
       }
     };
-  }, [map, visible, images, mapBounds]);
+  }, [map, visible, displayedImages]);
 
   // Handle visibility changes
   useEffect(() => {

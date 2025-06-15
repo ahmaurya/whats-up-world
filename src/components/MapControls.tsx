@@ -1,16 +1,9 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { useMap } from './MapProvider';
-import { Settings, Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, Coffee, Eye, ShoppingBasket, CircleParking } from 'lucide-react';
+import { Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, Coffee, Eye, ShoppingBasket, CircleParking } from 'lucide-react';
 
 const MapControls = () => {
   const { 
@@ -130,47 +123,26 @@ const MapControls = () => {
   ];
 
   return (
-    <Card className="absolute top-4 right-4 p-2 z-[2000] bg-white/95 backdrop-blur-sm border shadow-lg">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
-            <Settings size={16} />
-            Map Layers
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent 
-          className="w-72 bg-white border shadow-lg z-[2001]" 
-          align="end"
-          side="bottom"
-        >
-          <DropdownMenuLabel>Toggle Map Layers</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          
-          <div className="p-2 space-y-3">
-            {layerOptions.map((option) => {
-              const IconComponent = option.icon;
-              return (
-                <div key={option.id} className="flex items-center space-x-3">
-                  <Checkbox
-                    id={option.id}
-                    checked={option.checked}
-                    onCheckedChange={option.toggle}
-                    className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                  />
-                  <label
-                    htmlFor={option.id}
-                    className="flex items-center gap-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
-                  >
-                    <IconComponent size={14} />
-                    <div className={`w-3 h-3 rounded-full ${option.color}`}></div>
-                    {option.label}
-                  </label>
-                </div>
-              );
-            })}
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <Card className="absolute top-4 right-4 p-4 z-[2000] bg-white/95 backdrop-blur-sm border shadow-lg max-w-xs">
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold mb-3">Map Layers</h3>
+        {layerOptions.map((option) => {
+          const IconComponent = option.icon;
+          return (
+            <Button
+              key={option.id}
+              variant={option.checked ? "default" : "outline"}
+              size="sm"
+              onClick={option.toggle}
+              className="w-full justify-start gap-2 h-auto py-2"
+            >
+              <IconComponent size={14} />
+              <div className={`w-3 h-3 rounded-full ${option.color}`}></div>
+              <span className="text-xs">{option.label}</span>
+            </Button>
+          );
+        })}
+      </div>
     </Card>
   );
 };

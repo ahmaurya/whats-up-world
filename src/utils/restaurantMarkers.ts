@@ -33,20 +33,27 @@ export const createRestaurantMarker = (
 
 const createPopupContent = (restaurant: Restaurant, markerColor: string): string => {
   const isVegetarian = restaurant.isVegetarian;
+  const sourceLabel = restaurant.source === 'google' ? 'Google Places' : 'OpenStreetMap';
+  const sourceIcon = restaurant.source === 'google' ? '🔍' : '🗺️';
   
   return `
     <div style="max-width: 240px; min-height: 200px; padding: 12px; position: relative;">
       <h3 style="margin: 0 0 8px 0; font-weight: bold; font-size: 14px; padding-right: 20px;">${restaurant.name}</h3>
-      <div style="margin-bottom: 6px;">
-        <span style="color: #f59e0b; font-weight: bold;">${restaurant.rating > 0 ? restaurant.rating.toFixed(1) : 'N/A'}</span>
-        <span style="color: #fbbf24;">★</span>
-        <span style="color: #666; font-size: 12px; margin-left: 4px;">(${restaurant.reviews.toLocaleString()} reviews)</span>
-      </div>
+      ${restaurant.rating > 0 ? `
+        <div style="margin-bottom: 6px;">
+          <span style="color: #f59e0b; font-weight: bold;">${restaurant.rating.toFixed(1)}</span>
+          <span style="color: #fbbf24;">★</span>
+          <span style="color: #666; font-size: 12px; margin-left: 4px;">(${restaurant.reviews.toLocaleString()} reviews)</span>
+        </div>
+      ` : ''}
       <div style="margin-bottom: 6px; font-size: 12px;">
         <strong>Cuisine:</strong> ${restaurant.cuisine}
       </div>
       <div style="margin-bottom: 6px; font-size: 12px;">
         <strong>Type:</strong> <span style="color: ${markerColor}; font-weight: bold;">${isVegetarian ? 'Vegetarian/Vegan' : 'Non-Vegetarian'}</span>
+      </div>
+      <div style="margin-bottom: 6px; font-size: 12px;">
+        <strong>Source:</strong> ${sourceIcon} ${sourceLabel}
       </div>
       <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
         ${restaurant.description}

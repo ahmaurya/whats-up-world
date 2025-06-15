@@ -40,6 +40,41 @@ const GDELTEventsManager: React.FC<GDELTEventsManagerProps> = ({ map }) => {
     []
   );
 
+  // Function to check if coordinates are likely on land (simple approximation)
+  const isLikelyOnLand = (lat: number, lng: number): boolean => {
+    // Filter out obvious water coordinates
+    // These are rough approximations and may need refinement
+    
+    // Antarctic waters
+    if (lat < -60) return false;
+    
+    // Arctic waters (most areas above 75°N)
+    if (lat > 75) return false;
+    
+    // Pacific Ocean large areas
+    if (lng > -180 && lng < -120 && lat > 10 && lat < 60) {
+      // Allow some coastal areas but filter deep Pacific
+      if (lng < -140) return false;
+    }
+    
+    // Atlantic Ocean large areas
+    if (lng > -50 && lng < 20 && lat > 10 && lat < 70) {
+      // Filter mid-Atlantic
+      if (lng > -30 && lng < 0 && lat > 30 && lat < 60) return false;
+    }
+    
+    // Indian Ocean
+    if (lng > 40 && lng < 100 && lat > -40 && lat < 30) {
+      // Filter most of Indian Ocean
+      if (lat < 10 && lat > -30) return false;
+    }
+    
+    // Filter coordinates that are exactly 0,0 (often invalid)
+    if (lat === 0 && lng === 0) return false;
+    
+    return true;
+  };
+
   // Initialize markers layer
   useEffect(() => {
     if (!map) return;
@@ -173,9 +208,22 @@ const GDELTEventsManager: React.FC<GDELTEventsManagerProps> = ({ map }) => {
       return;
     }
 
-    console.log(`🌍 Adding ${events.length} GDELT events to map`);
+    // Filter events to exclude those likely on water
+    const landEvents = events.filter(event => {
+      const lat = event.coordinates[1];
+      const lng = event.coordinates[0];
+      const onLand = isLikelyOnLand(lat, lng);
+      
+      if (!onLand) {
+        console.log(`🌊 Filtering out water event at [${lat}, ${lng}]: ${event.eventDescription}`);
+      }
+      
+      return onLand;
+    });
 
-    events.forEach((event, index) => {
+    console.log(`🌍 Adding ${landEvents.length} land-based GDELT events to map (filtered ${events.length - landEvents.length} water events)`);
+
+    landEvents.forEach((event, index) => {
       if (!markersLayerRef.current) return;
 
       console.log(`🌍 Adding event ${index}:`, event);

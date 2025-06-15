@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -98,7 +99,7 @@ const MapControls = () => {
     },
     {
       id: 'disabled-parking',
-      label: 'Disabled Parking',
+      label: 'Reserved Disabled Parking',
       icon: CircleParking,
       color: 'bg-purple-600',
       checked: showDisabledParking,
@@ -148,3 +149,4 @@ const MapControls = () => {
 };
 
 export default MapControls;
+

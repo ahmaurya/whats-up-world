@@ -33,75 +33,128 @@ export const useHistoricPlaces = (bounds: L.LatLngBounds | null, enabled: boolea
         const north = bounds.getNorth();
         const east = bounds.getEast();
 
-        console.log('🏛️ Bounds:', { south, west, north, east });
+        console.log('🏛️ DEBUG STEP 2: Testing different API endpoints...');
 
-        // DEBUGGING STEP 1: Test if the service exists with minimal query
-        console.log('🔍 STEP 1: Testing service existence...');
+        // TEST 1: Try the National Register of Historic Places REST API (different format)
+        console.log('🔍 TEST 1: National Register REST API');
+        const nrhpUrl = 'https://services1.arcgis.com/fBc8EJBxQRMcHlei/ArcGIS/rest/services/NRHP_Public_Portal/FeatureServer/0/query';
+        const nrhpParams = new URLSearchParams({
+          where: '1=1',
+          outFields: '*',
+          f: 'json',
+          resultRecordCount: '5',
+          geometry: `${west},${south},${east},${north}`,
+          geometryType: 'esriGeometryEnvelope',
+          spatialRel: 'esriSpatialRelIntersects'
+        });
         
-        const testUrl = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_Historic_Places/FeatureServer/0?f=json';
-        console.log('🔍 Testing service info URL:', testUrl);
+        const nrhpTestUrl = `${nrhpUrl}?${nrhpParams.toString()}`;
+        console.log('🔍 NRHP Test URL:', nrhpTestUrl);
         
-        const serviceTest = await fetch(testUrl);
-        console.log('🔍 Service test response status:', serviceTest.status);
+        const nrhpResponse = await fetch(nrhpTestUrl);
+        console.log('🔍 NRHP Response status:', nrhpResponse.status);
         
-        if (serviceTest.ok) {
-          const serviceInfo = await serviceTest.json();
-          console.log('🔍 Service info:', serviceInfo);
-        } else {
-          console.log('🔍 Service test failed, trying alternative...');
+        if (nrhpResponse.ok) {
+          const nrhpData = await nrhpResponse.json();
+          console.log('🔍 NRHP Response data:', nrhpData);
           
-          // DEBUGGING STEP 2: Try different service URL structure
-          const altTestUrl = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Historic_Places/FeatureServer/0?f=json';
-          console.log('🔍 Testing alternative service URL:', altTestUrl);
-          
-          const altServiceTest = await fetch(altTestUrl);
-          console.log('🔍 Alternative service response status:', altServiceTest.status);
-          
-          if (altServiceTest.ok) {
-            const altServiceInfo = await altServiceTest.json();
-            console.log('🔍 Alternative service info:', altServiceInfo);
-          }
-        }
-
-        // DEBUGGING STEP 3: Try a completely different historic places service
-        console.log('🔍 STEP 3: Trying National Park Service API...');
-        const npsTestUrl = 'https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/NRHP_Public_Portal/FeatureServer/0?f=json';
-        console.log('🔍 Testing NPS service URL:', npsTestUrl);
-        
-        const npsTest = await fetch(npsTestUrl);
-        console.log('🔍 NPS service response status:', npsTest.status);
-        
-        if (npsTest.ok) {
-          const npsInfo = await npsTest.json();
-          console.log('🔍 NPS service info:', npsInfo);
-          
-          // If this service works, try a simple query
-          console.log('🔍 STEP 4: Testing simple query on NPS service...');
-          const simpleQueryUrl = `${npsTestUrl.replace('?f=json', '/query')}?where=1=1&outFields=*&f=json&resultRecordCount=1`;
-          console.log('🔍 Simple query URL:', simpleQueryUrl);
-          
-          const simpleQuery = await fetch(simpleQueryUrl);
-          console.log('🔍 Simple query response status:', simpleQuery.status);
-          
-          if (simpleQuery.ok) {
-            const simpleResult = await simpleQuery.json();
-            console.log('🔍 Simple query result:', simpleResult);
+          if (nrhpData.features && nrhpData.features.length > 0) {
+            console.log('✅ NRHP API WORKS! Sample feature:', nrhpData.features[0]);
             
-            if (simpleResult.features && simpleResult.features.length > 0) {
-              console.log('🔍 Sample feature from NPS:', simpleResult.features[0]);
-              console.log('🔍 NPS feature attributes:', simpleResult.features[0].attributes);
-              console.log('🔍 NPS feature geometry:', simpleResult.features[0].geometry);
-            }
+            // Process the data
+            const places = nrhpData.features.map((feature: any, index: number) => {
+              const attrs = feature.attributes;
+              const geom = feature.geometry;
+              
+              return {
+                id: attrs.OBJECTID || `place-${index}`,
+                name: attrs.RESNAME || attrs.NAME || 'Unknown Historic Place',
+                coordinates: [geom.x || geom.longitude || 0, geom.y || geom.latitude || 0],
+                county: attrs.COUNTY || 'Unknown County',
+                state: attrs.STATE || 'Unknown State',
+                date_listed: attrs.DATE_LISTED || attrs.DATELIST || 'Unknown Date',
+                resource_type: attrs.RESTYPE || attrs.TYPE || 'Historic Place',
+                nris_reference: attrs.NRIS_REFERENCE || attrs.REFNUM || ''
+              };
+            });
+            
+            setHistoricPlaces(places);
+            setError(null);
+            return;
           }
         }
 
-        // For now, set empty results while we debug
-        setHistoricPlaces([]);
-        setError('Service debugging in progress - check console for results');
+        // TEST 2: Try OpenStreetMap Overpass API for historic places
+        console.log('🔍 TEST 2: OpenStreetMap Overpass API');
+        const overpassUrl = 'https://overpass-api.de/api/interpreter';
+        const overpassQuery = `
+          [out:json][timeout:25];
+          (
+            way["historic"~"building|castle|church|monastery|ruins|archaeological_site"]
+              (${south},${west},${north},${east});
+            node["historic"~"building|castle|church|monastery|ruins|archaeological_site"]
+              (${south},${west},${north},${east});
+          );
+          out geom;
+        `;
+        
+        const overpassResponse = await fetch(overpassUrl, {
+          method: 'POST',
+          body: overpassQuery
+        });
+        
+        console.log('🔍 Overpass Response status:', overpassResponse.status);
+        
+        if (overpassResponse.ok) {
+          const overpassData = await overpassResponse.json();
+          console.log('🔍 Overpass Response data:', overpassData);
+          
+          if (overpassData.elements && overpassData.elements.length > 0) {
+            console.log('✅ OVERPASS API WORKS! Sample element:', overpassData.elements[0]);
+            
+            const places = overpassData.elements.slice(0, 20).map((element: any, index: number) => {
+              const lat = element.lat || (element.center && element.center.lat) || 0;
+              const lon = element.lon || (element.center && element.center.lon) || 0;
+              
+              return {
+                id: `osm-${element.id}`,
+                name: element.tags?.name || element.tags?.historic || 'Historic Place',
+                coordinates: [lon, lat],
+                county: element.tags?.['addr:county'] || 'Unknown County',
+                state: element.tags?.['addr:state'] || 'Unknown State',
+                date_listed: element.tags?.start_date || 'Unknown Date',
+                resource_type: element.tags?.historic || 'Historic Place',
+                nris_reference: ''
+              };
+            });
+            
+            setHistoricPlaces(places);
+            setError(null);
+            return;
+          }
+        }
+
+        // TEST 3: Try a simple mock data approach for now
+        console.log('🔍 TEST 3: Using mock data as fallback');
+        const mockPlaces: HistoricPlace[] = [
+          {
+            id: 'mock-1',
+            name: 'Sample Historic Building',
+            coordinates: [(west + east) / 2, (south + north) / 2],
+            county: 'Sample County',
+            state: 'Sample State',
+            date_listed: '1980-01-01',
+            resource_type: 'Building',
+            nris_reference: 'MOCK001'
+          }
+        ];
+        
+        setHistoricPlaces(mockPlaces);
+        setError('Using mock data - check console for API test results');
         
       } catch (err) {
-        console.error('🏛️ Error during debugging:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        console.error('🏛️ Error during API testing:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error during API testing');
         setHistoricPlaces([]);
       } finally {
         setLoading(false);

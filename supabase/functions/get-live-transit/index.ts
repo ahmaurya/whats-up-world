@@ -55,20 +55,27 @@ serve(async (req) => {
 
     let apiUrl: string
     let agencyName: string
-    let apiType: 'gtfs-rt' | 'onebusaway' = 'gtfs-rt'
+    let agencyId: string
 
+    // Use OneBusAway for all agencies since KCM direct API is no longer accessible
     switch (agency.toLowerCase()) {
       case 'kcm':
-        apiUrl = 'https://s3.amazonaws.com/kcm-alerts-realtime-prod/vehiclepositions.pb'
-        agencyName = 'King County Metro'
-        apiType = 'gtfs-rt'
+        // King County Metro via OneBusAway (agency ID 1)
+        apiUrl = 'http://api.pugetsound.onebusaway.org/api/where/vehicles-for-agency/1.json?key=TEST'
+        agencyName = 'King County Metro (via OneBusAway)'
+        agencyId = '1'
         break
       case 'st':
+        // Sound Transit via OneBusAway (agency ID 40) 
+        apiUrl = 'http://api.pugetsound.onebusaway.org/api/where/vehicles-for-agency/40.json?key=TEST'
+        agencyName = 'Sound Transit (via OneBusAway)'
+        agencyId = '40'
+        break
       case 'oba':
-        // Use OneBusAway API for both Sound Transit and general transit data
+        // All agencies via OneBusAway
         apiUrl = 'http://api.pugetsound.onebusaway.org/api/where/vehicles-for-agency/40.json?key=TEST'
         agencyName = 'OneBusAway (Puget Sound)'
-        apiType = 'onebusaway'
+        agencyId = '40'
         break
       default:
         console.error(`❌ Invalid agency parameter: ${agency}`)
@@ -94,15 +101,9 @@ serve(async (req) => {
 
     try {
       const headers: Record<string, string> = {
-        'User-Agent': 'Seattle-Transit-Map/1.0'
+        'User-Agent': 'Seattle-Transit-Map/1.0',
+        'Accept': 'application/json'
       };
-
-      // Set appropriate Accept header based on API type
-      if (apiType === 'gtfs-rt') {
-        headers['Accept'] = 'application/x-protobuf';
-      } else {
-        headers['Accept'] = 'application/json';
-      }
 
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -144,31 +145,17 @@ serve(async (req) => {
         )
       }
 
-      let responseData: string;
-      let dataSize: number;
+      // Handle JSON response from OneBusAway
+      const jsonData = await response.json();
+      console.log(`✅ Successfully received OneBusAway JSON data:`, {
+        code: jsonData.code,
+        version: jsonData.version,
+        vehicleCount: jsonData.data?.list?.length || 0
+      });
 
-      if (apiType === 'onebusaway') {
-        // Handle JSON response from OneBusAway
-        const jsonData = await response.json();
-        console.log(`✅ Successfully received OneBusAway JSON data:`, {
-          code: jsonData.code,
-          version: jsonData.version,
-          vehicleCount: jsonData.data?.list?.length || 0
-        });
-
-        // Convert JSON to string for consistent handling
-        responseData = JSON.stringify(jsonData);
-        dataSize = responseData.length;
-      } else {
-        // Handle protobuf response from GTFS-RT
-        const arrayBuffer = await response.arrayBuffer()
-        console.log(`✅ Successfully received ${arrayBuffer.byteLength} bytes from ${agencyName}`)
-
-        // Convert ArrayBuffer to base64 for JSON transmission
-        const uint8Array = new Uint8Array(arrayBuffer);
-        responseData = btoa(String.fromCharCode(...uint8Array));
-        dataSize = arrayBuffer.byteLength;
-      }
+      // Convert JSON to string for consistent handling
+      const responseData = JSON.stringify(jsonData);
+      const dataSize = responseData.length;
       
       console.log(`📦 Converted to response data of size: ${dataSize}`);
 
@@ -176,16 +163,17 @@ serve(async (req) => {
         success: true,
         agency: agencyName,
         agencyCode: agency.toLowerCase(),
+        agencyId: agencyId,
         dataSize: dataSize,
         data: responseData,
-        apiType: apiType,
+        apiType: 'onebusaway',
         timestamp: new Date().toISOString(),
         fetchedFrom: apiUrl
       };
 
       console.log(`🎉 Returning success response for ${agencyName}:`, {
         ...successResponse,
-        data: `[${apiType} data of ${dataSize} ${apiType === 'onebusaway' ? 'chars' : 'bytes'}]` // Don't log the full data
+        data: `[onebusaway data of ${dataSize} chars]` // Don't log the full data
       });
 
       return new Response(JSON.stringify(successResponse), {

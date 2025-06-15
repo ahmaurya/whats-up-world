@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { supabase } from '@/integrations/supabase/client';
@@ -118,59 +117,9 @@ export const useLiveTransitData = (map: L.Map | null) => {
     }
   };
 
-  // Parse GTFS-RT protobuf data
-  const parseGTFSRealtime = async (arrayBuffer: ArrayBuffer, vehicleType: 'bus' | 'rail' | 'tram', operator: string): Promise<LiveVehicle[]> => {
-    try {
-      console.log(`🔍 Starting to parse GTFS-RT data for ${vehicleType} from ${operator}`);
-      console.log(`📦 ArrayBuffer size: ${arrayBuffer.byteLength} bytes`);
-      
-      const gtfsRealtime = await import('gtfs-realtime-bindings');
-      console.log('📚 GTFS Realtime bindings loaded successfully');
-      
-      const feed = gtfsRealtime.transit_realtime.FeedMessage.decode(new Uint8Array(arrayBuffer));
-      console.log(`📊 Decoded feed with ${feed.entity.length} entities`);
-      
-      const vehicles: LiveVehicle[] = [];
-
-      feed.entity.forEach((entity, index) => {
-        if (entity.vehicle) {
-          const vehicle = entity.vehicle;
-          const position = vehicle.position;
-          
-          if (position && position.latitude && position.longitude) {
-            const speed = position.speed ? position.speed * 2.237 : undefined; // Convert m/s to mph
-            
-            const liveVehicle: LiveVehicle = {
-              id: entity.id,
-              routeId: vehicle.trip?.routeId || 'unknown',
-              routeName: vehicle.trip?.routeId || 'Unknown Route',
-              latitude: position.latitude,
-              longitude: position.longitude,
-              bearing: position.bearing,
-              speed: speed,
-              timestamp: vehicle.timestamp ? Number(vehicle.timestamp) * 1000 : Date.now(),
-              vehicleType,
-              operator,
-              occupancyStatus: vehicle.occupancyStatus as any,
-              routeProgress: 0.5
-            };
-            
-            vehicles.push(liveVehicle);
-          }
-        }
-      });
-
-      console.log(`✅ Successfully parsed ${vehicles.length} valid vehicles for ${vehicleType} from ${operator}`);
-      return vehicles;
-    } catch (error) {
-      console.error(`❌ Error parsing GTFS-RT data for ${vehicleType}:`, error);
-      throw error;
-    }
-  };
-
-  // Fetch King County Metro bus positions using Supabase Edge Function
+  // Fetch King County Metro bus positions using OneBusAway API
   const fetchKingCountyMetroBuses = async (): Promise<LiveVehicle[]> => {
-    console.log('🚌 Starting KCM bus data fetch...');
+    console.log('🚌 Starting KCM bus data fetch via OneBusAway...');
     
     try {
       console.log('📡 Calling Supabase function for KCM data...');
@@ -198,15 +147,9 @@ export const useLiveTransitData = (map: L.Map | null) => {
         throw new Error(`Function Error: ${data?.error || 'Unknown error'}`);
       }
 
-      // Convert base64 back to ArrayBuffer
-      const binaryString = atob(data.data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const arrayBuffer = bytes.buffer;
-      
-      const vehicles = await parseGTFSRealtime(arrayBuffer, 'bus', 'King County Metro');
+      // Parse JSON response from OneBusAway
+      const jsonData = JSON.parse(data.data);
+      const vehicles = parseOneBusAwayData(jsonData, 'bus', 'King County Metro');
       console.log(`🚌 KCM FINAL RESULT: ${vehicles.length} buses fetched`);
       
       return vehicles;
@@ -216,44 +159,44 @@ export const useLiveTransitData = (map: L.Map | null) => {
     }
   };
 
-  // Fetch OneBusAway transit data using Supabase Edge Function
-  const fetchOneBusAwayTransit = async (): Promise<LiveVehicle[]> => {
-    console.log('🚊 Starting OneBusAway transit data fetch...');
+  // Fetch Sound Transit data using OneBusAway API
+  const fetchSoundTransitData = async (): Promise<LiveVehicle[]> => {
+    console.log('🚊 Starting Sound Transit data fetch via OneBusAway...');
     
     try {
-      console.log('📡 Calling Supabase function for OneBusAway data...');
+      console.log('📡 Calling Supabase function for Sound Transit data...');
       
       const { data, error } = await supabase.functions.invoke('get-live-transit', {
-        body: JSON.stringify({ agency: 'oba' }),
+        body: JSON.stringify({ agency: 'st' }),
         headers: {
           'Content-Type': 'application/json'
         }
       });
 
-      console.log(`📡 OneBusAway Supabase Response:`, { 
+      console.log(`📡 Sound Transit Supabase Response:`, { 
         hasData: !!data, 
         hasError: !!error,
         error: error
       });
       
       if (error) {
-        console.error(`❌ OneBusAway Supabase function error:`, error);
+        console.error(`❌ Sound Transit Supabase function error:`, error);
         throw new Error(`Supabase function error: ${error.message || JSON.stringify(error)}`);
       }
 
       if (!data || !data.success) {
-        console.error(`❌ OneBusAway function returned error:`, data);
+        console.error(`❌ Sound Transit function returned error:`, data);
         throw new Error(`Function Error: ${data?.error || 'Unknown error'}`);
       }
 
       // Parse JSON response from OneBusAway
       const jsonData = JSON.parse(data.data);
-      const vehicles = parseOneBusAwayData(jsonData, 'bus', 'OneBusAway (Puget Sound)');
-      console.log(`🚊 OneBusAway FINAL RESULT: ${vehicles.length} vehicles fetched`);
+      const vehicles = parseOneBusAwayData(jsonData, 'rail', 'Sound Transit');
+      console.log(`🚊 Sound Transit FINAL RESULT: ${vehicles.length} vehicles fetched`);
       
       return vehicles;
     } catch (error) {
-      console.error('❌ Error in fetchOneBusAwayTransit:', error);
+      console.error('❌ Error in fetchSoundTransitData:', error);
       throw error;
     }
   };
@@ -276,30 +219,23 @@ export const useLiveTransitData = (map: L.Map | null) => {
     setError(null);
     
     try {
-      console.log('🚌 Fetching live transit data via Supabase...');
+      console.log('🚌 Fetching live transit data via OneBusAway...');
       
       const results = await Promise.allSettled([
         fetchKingCountyMetroBuses(),
-        fetchOneBusAwayTransit(),
+        fetchSoundTransitData(),
         fetchSeattleStreetcars()
       ]);
       
       console.log('📊 All API calls completed. Processing results...');
       
       const buses = results[0].status === 'fulfilled' ? results[0].value : [];
-      const transitVehicles = results[1].status === 'fulfilled' ? results[1].value : [];
+      const rail = results[1].status === 'fulfilled' ? results[1].value : [];
       const trams = results[2].status === 'fulfilled' ? results[2].value : [];
-      
-      // Separate OneBusAway vehicles by type (buses vs rail)
-      const oneBusAwayBuses = transitVehicles.filter(v => v.vehicleType === 'bus');
-      const oneBusAwayRail = transitVehicles.filter(v => v.vehicleType === 'rail');
-      
-      // Combine buses from different sources
-      const allBuses = [...buses, ...oneBusAwayBuses];
       
       // Log any errors
       results.forEach((result, index) => {
-        const types = ['KCM buses', 'OneBusAway transit', 'trams'];
+        const types = ['KCM buses', 'Sound Transit', 'trams'];
         if (result.status === 'rejected') {
           console.error(`❌ Failed to fetch ${types[index]}:`, result.reason);
         } else {
@@ -308,15 +244,15 @@ export const useLiveTransitData = (map: L.Map | null) => {
       });
       
       console.log(`📊 Final live transit data summary:`, {
-        buses: allBuses.length,
-        rail: oneBusAwayRail.length,
+        buses: buses.length,
+        rail: rail.length,
         trams: trams.length,
-        totalVehicles: allBuses.length + oneBusAwayRail.length + trams.length
+        totalVehicles: buses.length + rail.length + trams.length
       });
       
       setLiveData({
-        buses: allBuses,
-        rail: oneBusAwayRail,
+        buses,
+        rail,
         trams,
         lastUpdated: Date.now()
       });

@@ -5,6 +5,8 @@ import { useLeaflet } from '@/hooks/useLeaflet';
 import MapControls from './MapControls';
 import RestaurantPopup from './RestaurantPopup';
 import TransitLinesManager from './TransitLinesManager';
+import LiveTransitManager from './LiveTransitManager';
+import LiveVehicleStyles from './LiveVehicleStyles';
 import RestaurantMarkersManager from './RestaurantMarkersManager';
 import CafeMarkersManager from './CafeMarkersManager';
 import HistoricPlacesManager from './HistoricPlacesManager';
@@ -36,9 +38,11 @@ const Map = () => {
 
   return (
     <div className="relative w-full h-full">
+      <LiveVehicleStyles />
       <div ref={mapContainer} className="absolute inset-0" />
       <MapControls />
       <TransitLinesManager map={map.current} />
+      <LiveTransitManager map={map.current} />
       <RestaurantMarkersManager 
         map={map.current} 
         onRestaurantClick={handleRestaurantClick} 

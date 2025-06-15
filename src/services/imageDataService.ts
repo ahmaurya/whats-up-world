@@ -129,6 +129,73 @@ class ImageDataService {
     }
   }
 
+  // New method for batch fetching Mapillary images
+  async fetchMapillaryImagesBatched(
+    params: ImageSearchParams, 
+    onBatchReceived: (images: GeocodedImage[], batchIndex: number) => void
+  ): Promise<GeocodedImage[]> {
+    try {
+      const { bounds, limit = 50 } = params;
+      const batchSize = 10;
+      const totalBatches = Math.ceil(limit / batchSize);
+      const allImages: GeocodedImage[] = [];
+
+      console.log(`🗺️ Fetching Mapillary images in ${totalBatches} batches of ${batchSize} each`);
+
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const offset = batchIndex * batchSize;
+        const currentBatchSize = Math.min(batchSize, limit - offset);
+
+        // Mapillary API endpoint for images
+        const mapillaryUrl = new URL('https://graph.mapillary.com/images');
+        mapillaryUrl.searchParams.append('access_token', this.mapillaryApiKey);
+        mapillaryUrl.searchParams.append('bbox', `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`);
+        mapillaryUrl.searchParams.append('limit', currentBatchSize.toString());
+        mapillaryUrl.searchParams.append('start', offset.toString());
+        mapillaryUrl.searchParams.append('fields', 'id,geometry,thumb_1024_url,thumb_256_url');
+
+        console.log(`🗺️ Fetching Mapillary batch ${batchIndex + 1}/${totalBatches} (${currentBatchSize} images)`);
+        
+        const response = await fetch(mapillaryUrl.toString());
+        const data = await response.json();
+
+        if (!data.data) {
+          console.error('Mapillary API error:', data);
+          continue;
+        }
+
+        const batchResults = data.data.map((image: any): GeocodedImage => ({
+          id: `mapillary_${image.id}`,
+          latitude: image.geometry.coordinates[1],
+          longitude: image.geometry.coordinates[0],
+          thumbnailUrl: image.thumb_256_url,
+          fullImageUrl: image.thumb_1024_url,
+          title: 'Street View',
+          description: 'Street-level imagery from Mapillary',
+          source: 'mapillary' as const
+        }));
+
+        if (batchResults.length > 0) {
+          allImages.push(...batchResults);
+          onBatchReceived(batchResults, batchIndex);
+          console.log(`🗺️ Delivered Mapillary batch ${batchIndex + 1}: ${batchResults.length} images`);
+        }
+
+        // Small delay between batches to avoid overwhelming the API
+        if (batchIndex < totalBatches - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      // Cache the complete results
+      imageCacheService.set('mapillary', params.bounds, allImages);
+      return allImages;
+    } catch (error) {
+      console.error('Error fetching Mapillary images in batches:', error);
+      return [];
+    }
+  }
+
   // New method for quick lite Mapillary fetch
   async fetchMapillaryImagesLite(params: ImageSearchParams): Promise<GeocodedImage[]> {
     try {
@@ -220,7 +287,7 @@ class ImageDataService {
     }
   }
 
-  // Updated method to fetch images progressively with lite first approach
+  // Updated method to fetch images progressively with batched Mapillary
   async fetchAllImagesProgressive(
     params: ImageSearchParams, 
     onImagesReceived: (images: GeocodedImage[], source: string) => void
@@ -241,40 +308,41 @@ class ImageDataService {
       console.error('Error fetching lite images from mapillary:', error);
     }
 
-    // Then: Full fetch from all sources
-    const sources = [
-      { name: 'mapillary', fetch: () => this.fetchMapillaryImages(params) },
-      { name: 'nasa', fetch: () => this.fetchNASAImages(params) },
-      // Flickr still needs API key configuration
-      // { name: 'flickr', fetch: () => this.fetchFlickrImages(params) },
-    ];
-
-    // Fetch from each source and emit results as they arrive
-    const promises = sources.map(async (source) => {
-      try {
-        const images = await source.fetch();
+    // Then: Batched fetch from Mapillary and other sources
+    const promises = [
+      // Batched Mapillary fetch
+      this.fetchMapillaryImagesBatched(params, (batchImages, batchIndex) => {
+        console.log(`🖼️ Received Mapillary batch ${batchIndex + 1}: ${batchImages.length} images`);
+        onImagesReceived(batchImages, `mapillary-batch-${batchIndex}`);
+      }),
+      // NASA fetch
+      this.fetchNASAImages(params).then(images => {
         if (images.length > 0) {
-          console.log(`🖼️ Received ${images.length} images from ${source.name}`);
-          onImagesReceived(images, source.name);
-          
-          // For mapillary, filter out the lite images to avoid duplicates
-          if (source.name === 'mapillary') {
-            const liteImageIds = new Set(allImages.filter(img => img.source === 'mapillary-lite').map(img => img.id));
-            const newImages = images.filter(img => !liteImageIds.has(img.id));
-            allImages.push(...newImages);
-          } else {
-            allImages.push(...images);
-          }
+          console.log(`🖼️ Received ${images.length} images from nasa`);
+          onImagesReceived(images, 'nasa');
         }
         return images;
-      } catch (error) {
-        console.error(`Error fetching images from ${source.name}:`, error);
-        return [];
-      }
-    });
+      }),
+      // Flickr still needs API key configuration
+      // this.fetchFlickrImages(params),
+    ];
 
     // Wait for all sources to complete
-    await Promise.allSettled(promises);
+    const results = await Promise.allSettled(promises);
+    
+    // Add all results to allImages (avoiding duplicates for mapillary)
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value.length > 0) {
+        if (index === 0) { // Mapillary batched results
+          // Filter out lite images to avoid duplicates
+          const liteImageIds = new Set(allImages.filter(img => img.source === 'mapillary-lite').map(img => img.id));
+          const newImages = result.value.filter(img => !liteImageIds.has(img.id));
+          allImages.push(...newImages);
+        } else {
+          allImages.push(...result.value);
+        }
+      }
+    });
     
     console.log(`🖼️ Completed fetching ${allImages.length} images from all sources`);
     return allImages;

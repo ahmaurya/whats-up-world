@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { imageDataService, GeocodedImage, ImageSearchParams } from '@/services/imageDataService';
 
@@ -9,12 +10,23 @@ export const useGeocodedImages = (bounds?: ImageSearchParams['bounds']) => {
   const handleProgressiveImages = useCallback((newImages: GeocodedImage[], source: string) => {
     console.log(`🖼️ Adding ${newImages.length} images from ${source} progressively`);
     setImages(prev => {
-      // Handle lite vs full mapillary updates differently
+      // Handle lite vs batched mapillary updates differently
       if (source === 'mapillary-lite') {
         // First lite batch - add immediately
         return [...prev, ...newImages];
+      } else if (source.startsWith('mapillary-batch-')) {
+        // Batched mapillary updates - remove lite images on first batch, then add to existing
+        const batchIndex = parseInt(source.split('-')[2]);
+        if (batchIndex === 0) {
+          // First batch - replace lite images with first batch
+          const nonMapillaryImages = prev.filter(img => img.source !== 'mapillary-lite');
+          return [...nonMapillaryImages, ...newImages];
+        } else {
+          // Subsequent batches - add to existing mapillary images
+          return [...prev, ...newImages];
+        }
       } else if (source === 'mapillary') {
-        // Full mapillary batch - replace lite images with full set
+        // Full mapillary batch (fallback) - replace lite images with full set
         const nonMapillaryImages = prev.filter(img => img.source !== 'mapillary');
         return [...nonMapillaryImages, ...newImages];
       } else {

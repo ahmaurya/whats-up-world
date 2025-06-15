@@ -1,6 +1,6 @@
-
 import { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface LiveVehicle {
   id: string;
@@ -104,54 +104,40 @@ export const useLiveTransitData = (map: L.Map | null) => {
     }
   };
 
-  // Fetch King County Metro bus positions using real GTFS-RT data
+  // Fetch King County Metro bus positions using Supabase Edge Function
   const fetchKingCountyMetroBuses = async (): Promise<LiveVehicle[]> => {
-    console.log('🚌 Fetching King County Metro bus data...');
+    console.log('🚌 Fetching King County Metro bus data via Supabase...');
     
-    // King County Metro GTFS-RT feed
-    const response = await fetch('https://s3.amazonaws.com/kcm-alerts-realtime-prod/vehiclepositions.pb', {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/x-protobuf'
-      }
+    const { data, error } = await supabase.functions.invoke('get-live-transit', {
+      body: { agency: 'kcm' }
     });
     
-    console.log(`📡 King County Metro API response: ${response.status} ${response.statusText}`);
-    console.log('📋 Response headers:', Object.fromEntries(response.headers.entries()));
-    
-    if (!response.ok) {
-      throw new Error(`King County Metro API error: ${response.status}`);
+    if (error) {
+      console.error('❌ Supabase function error for KCM:', error);
+      throw error;
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    console.log(`📦 Received ${arrayBuffer.byteLength} bytes from King County Metro`);
+    console.log(`📦 Received ${data.byteLength} bytes from King County Metro via Supabase`);
     
-    return await parseGTFSRealtime(arrayBuffer, 'bus', 'King County Metro');
+    return await parseGTFSRealtime(data, 'bus', 'King County Metro');
   };
 
-  // Fetch Sound Transit light rail positions using real GTFS-RT data
+  // Fetch Sound Transit light rail positions using Supabase Edge Function
   const fetchSoundTransitRail = async (): Promise<LiveVehicle[]> => {
-    console.log('🚊 Fetching Sound Transit rail data...');
+    console.log('🚊 Fetching Sound Transit rail data via Supabase...');
     
-    // Sound Transit GTFS-RT feed
-    const response = await fetch('https://www.soundtransit.org/GTFS-rt/VehiclePositions.pb', {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/x-protobuf'
-      }
+    const { data, error } = await supabase.functions.invoke('get-live-transit', {
+      body: { agency: 'st' }
     });
     
-    console.log(`📡 Sound Transit API response: ${response.status} ${response.statusText}`);
-    console.log('📋 Response headers:', Object.fromEntries(response.headers.entries()));
-    
-    if (!response.ok) {
-      throw new Error(`Sound Transit API error: ${response.status}`);
+    if (error) {
+      console.error('❌ Supabase function error for ST:', error);
+      throw error;
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    console.log(`📦 Received ${arrayBuffer.byteLength} bytes from Sound Transit`);
+    console.log(`📦 Received ${data.byteLength} bytes from Sound Transit via Supabase`);
     
-    return await parseGTFSRealtime(arrayBuffer, 'rail', 'Sound Transit');
+    return await parseGTFSRealtime(data, 'rail', 'Sound Transit');
   };
 
   // Fetch Seattle Streetcar positions
@@ -169,7 +155,7 @@ export const useLiveTransitData = (map: L.Map | null) => {
     setError(null);
     
     try {
-      console.log('🚌 Fetching live transit data for Seattle...');
+      console.log('🚌 Fetching live transit data for Seattle via Supabase...');
       
       const results = await Promise.allSettled([
         fetchKingCountyMetroBuses(),

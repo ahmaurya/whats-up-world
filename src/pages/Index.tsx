@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Map from '@/components/Map';
@@ -19,6 +18,12 @@ const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [currentCity, setCurrentCity] = useState<string>('');
+
+  // Update document title when city changes
+  useEffect(() => {
+    const title = currentCity ? `What's Up, ${currentCity}` : "What's Up, World";
+    document.title = title;
+  }, [currentCity]);
 
   // Function to reverse geocode coordinates to city name
   const getCityFromCoordinates = async (lat: number, lon: number) => {

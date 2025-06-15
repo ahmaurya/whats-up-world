@@ -14,6 +14,31 @@ export const useSeattleDisabledParking = () => {
     try {
       console.log(`🏙️ Fetching Seattle disabled parking spots near ${lat}, ${lng} within ${radius}m`);
 
+      // First, test the exact working URL provided by user (without spatial filtering)
+      const testUrl = `https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Curb_Space_Categories/FeatureServer/6/query?where=SPACETYPE%20%3D%20'DISABL'&outFields=*&outSR=4326&f=json`;
+      
+      console.log(`🔍 Testing exact working URL: ${testUrl}`);
+      
+      try {
+        const testResponse = await fetch(testUrl);
+        console.log(`🔍 Test response status: ${testResponse.status}`);
+        
+        if (testResponse.ok) {
+          const testData = await testResponse.json();
+          console.log(`🔍 Test API response structure:`, {
+            hasFeatures: !!testData.features,
+            featuresCount: testData.features?.length || 0,
+            sampleKeys: testData.features?.[0] ? Object.keys(testData.features[0]) : [],
+            sampleFeature: testData.features?.[0],
+            fullResponse: testData
+          });
+        } else {
+          console.error(`🔍 Test API failed with status: ${testResponse.status}`);
+        }
+      } catch (testError) {
+        console.error(`🔍 Test API error:`, testError);
+      }
+
       // Seattle's Open Data API - Disabled Parking Zones
       // Using SODA API with spatial query
       const bbox = calculateBoundingBox(lat, lng, radius);
@@ -28,8 +53,11 @@ export const useSeattleDisabledParking = () => {
         // Query 3: Street parking with accessibility info
         `https://data.seattle.gov/resource/926b-jbpn.json?$where=within_box(location,${bbox.south},${bbox.west},${bbox.north},${bbox.east})&$limit=1000`,
 
-        // Query 4: Seattle City GIS - Curb Space Categories (DISABL spaces) - URL ENCODED FORMAT
-        `https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Curb_Space_Categories/FeatureServer/6/query?where=SPACETYPE%20%3D%20'DISABL'&geometry=${bbox.west},${bbox.south},${bbox.east},${bbox.north}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=true&outSR=4326&f=json`
+        // Query 4: Seattle City GIS - Curb Space Categories (DISABL spaces) - Updated to match working format
+        `https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Curb_Space_Categories/FeatureServer/6/query?where=SPACETYPE%20%3D%20'DISABL'&outFields=*&outSR=4326&f=json&geometry=${bbox.west},${bbox.south},${bbox.east},${bbox.north}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects`,
+        
+        // Query 5: Alternative GIS query without spatial filtering (for testing)
+        `https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Curb_Space_Categories/FeatureServer/6/query?where=SPACETYPE%20%3D%20'DISABL'&outFields=*&outSR=4326&f=json&resultRecordCount=100`
       ];
 
       let allSpots: any[] = [];
@@ -43,23 +71,32 @@ export const useSeattleDisabledParking = () => {
           
           if (!response.ok) {
             console.log(`🏙️ Seattle query ${i + 1} failed with status: ${response.status}`);
+            const errorText = await response.text();
+            console.log(`🏙️ Error response: ${errorText}`);
             continue;
           }
 
           const data = await response.json();
           console.log(`🏙️ Raw response from query ${i + 1}:`, data);
           
-          if (i === 3) {
-            // Handle ArcGIS response format for curb space data
+          if (i >= 3) {
+            // Handle ArcGIS response format for curb space data (queries 4 and 5)
             if (data.features && Array.isArray(data.features) && data.features.length > 0) {
-              console.log(`🏙️ Seattle GIS query returned ${data.features.length} curb space features`);
-              console.log(`🏙️ Sample GIS features:`, data.features.slice(0, 3));
+              console.log(`🏙️ Seattle GIS query ${i + 1} returned ${data.features.length} curb space features`);
+              console.log(`🏙️ Sample GIS features from query ${i + 1}:`, data.features.slice(0, 3));
+              console.log(`🏙️ Feature attributes structure:`, data.features[0]?.attributes ? Object.keys(data.features[0].attributes) : 'No attributes');
+              console.log(`🏙️ Feature geometry structure:`, data.features[0]?.geometry ? Object.keys(data.features[0].geometry) : 'No geometry');
+              
               allSpots.push(...data.features.map((feature: any) => ({
                 ...feature.attributes,
-                geometry: feature.geometry
+                geometry: feature.geometry,
+                querySource: `gis_query_${i + 1}`
               })));
             } else {
-              console.log(`🏙️ No features returned from GIS query. Response structure:`, Object.keys(data));
+              console.log(`🏙️ No features returned from GIS query ${i + 1}. Response structure:`, Object.keys(data));
+              if (data.error) {
+                console.error(`🏙️ GIS API error in query ${i + 1}:`, data.error);
+              }
             }
           } else {
             // Handle SODA API response format
@@ -77,6 +114,11 @@ export const useSeattleDisabledParking = () => {
       }
 
       console.log(`🏙️ Total elements collected from Seattle APIs: ${allSpots.length}`);
+      console.log(`🏙️ Elements by source:`, allSpots.reduce((acc, spot) => {
+        const source = spot.querySource || 'soda_api';
+        acc[source] = (acc[source] || 0) + 1;
+        return acc;
+      }, {}));
 
       // Process Seattle parking data
       const processedSpots: DisabledParkingSpot[] = allSpots
@@ -92,6 +134,15 @@ export const useSeattleDisabledParking = () => {
             item.ada_accessible === 'Y' ||
             item.accessible === 'Y' ||
             item.SPACETYPE === 'DISABL'; // GIS curb space data
+            
+          if (hasDisabledFeature) {
+            console.log(`🏙️ Found disabled parking item:`, {
+              id: item.objectid || item.OBJECTID || item.id,
+              spacetype: item.SPACETYPE,
+              source: item.querySource,
+              hasGeometry: !!item.geometry
+            });
+          }
             
           return hasDisabledFeature;
         })
@@ -134,6 +185,12 @@ export const useSeattleDisabledParking = () => {
             coordinates = [lng, lat]; // fallback
           }
 
+          console.log(`🏙️ Processing parking spot coordinates:`, {
+            original: item.geometry,
+            processed: coordinates,
+            source: item.querySource
+          });
+
           // Generate name
           const name = generateSeattleParkingName(item);
 
@@ -163,6 +220,9 @@ export const useSeattleDisabledParking = () => {
         .filter((spot) => {
           const isValid = spot.coordinates[0] !== 0 && spot.coordinates[1] !== 0 &&
                          !isNaN(spot.coordinates[0]) && !isNaN(spot.coordinates[1]);
+          if (!isValid) {
+            console.log(`🏙️ Filtering out invalid coordinates:`, spot.coordinates);
+          }
           return isValid;
         });
 

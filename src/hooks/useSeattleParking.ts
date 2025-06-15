@@ -28,8 +28,8 @@ export const useSeattleDisabledParking = () => {
         // Query 3: Street parking with accessibility info
         `https://data.seattle.gov/resource/926b-jbpn.json?$where=within_box(location,${bbox.south},${bbox.west},${bbox.north},${bbox.east})&$limit=1000`,
 
-        // Query 4: Seattle City GIS - Curb Space Categories (DISABL spaces) - FIXED ENDPOINT
-        `https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Curb_Space_Categories/FeatureServer/6/query?where=SPACETYPE='DISABL'&geometry=${bbox.west},${bbox.south},${bbox.east},${bbox.north}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=true&outSR=4326&f=json`
+        // Query 4: Seattle City GIS - Curb Space Categories (DISABL spaces) - URL ENCODED FORMAT
+        `https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Curb_Space_Categories/FeatureServer/6/query?where=SPACETYPE%20%3D%20'DISABL'&geometry=${bbox.west},${bbox.south},${bbox.east},${bbox.north}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=true&outSR=4326&f=json`
       ];
 
       let allSpots: any[] = [];

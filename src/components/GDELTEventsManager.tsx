@@ -112,8 +112,24 @@ const GDELTEventsManager: React.FC<GDELTEventsManagerProps> = ({ map }) => {
     });
   };
 
+  const createGoogleSearchUrl = (event: any): string => {
+    // Build search query from event description and actor names
+    const searchTerms = [
+      event.eventDescription,
+      event.actor1Name,
+      event.actor2Name,
+      event.countryCode
+    ].filter(term => term && term !== 'Unknown Actor' && term !== '').join(' ');
+
+    // Encode the search query for URL
+    const encodedQuery = encodeURIComponent(searchTerms);
+    
+    return `https://www.google.com/search?q=${encodedQuery}`;
+  };
+
   const createPopupContent = (event: any): string => {
     const eventDate = new Date(event.eventDate).toLocaleDateString();
+    const googleSearchUrl = createGoogleSearchUrl(event);
 
     let popupContent = `
       <div style="max-width: 320px;">
@@ -121,7 +137,7 @@ const GDELTEventsManager: React.FC<GDELTEventsManagerProps> = ({ map }) => {
         <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Source:</strong> ${event.actor1Name}</p>
         <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Date:</strong> ${eventDate}</p>
         <p style="margin: 0 0 8px 0; font-size: 12px;"><strong>Country:</strong> ${event.countryCode}</p>
-        ${event.sourceUrl ? `<a href="${event.sourceUrl}" target="_blank" style="font-size: 12px; color: #2563eb;">Read more →</a>` : ''}
+        <a href="${googleSearchUrl}" target="_blank" style="font-size: 12px; color: #2563eb;">Search for more info →</a>
       </div>
     `;
 

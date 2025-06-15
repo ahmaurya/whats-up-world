@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 
 export interface ScenicViewpoint {
@@ -81,31 +80,52 @@ export const useScenicViewpoints = (bounds: L.LatLngBounds | null, enabled: bool
 
               if (!lat || !lon) return null;
 
-              // Create more detailed descriptions based on available tags
               const tags = element.tags || {};
-              let description = tags.description || tags.note || '';
               
-              // If no description, try to create one from available information
-              if (!description) {
-                const parts = [];
-                if (tags.natural) parts.push(`Beautiful ${tags.natural} views`);
-                if (tags.mountain_range) parts.push(`overlooking ${tags.mountain_range}`);
-                if (tags.ele) parts.push(`at ${tags.ele}m elevation`);
-                if (tags.access && tags.access !== 'yes') parts.push(`(${tags.access} access)`);
-                
-                if (parts.length > 0) {
-                  description = parts.join(' ');
+              // Filter out generic names and create meaningful names
+              let name = tags.name || '';
+              
+              // Skip generic viewpoints without proper names
+              if (!name || 
+                  name === 'Scenic Viewpoint' || 
+                  name === 'Viewpoint' || 
+                  name === 'View Point' ||
+                  name.toLowerCase().includes('unnamed') ||
+                  name.toLowerCase().includes('untitled')) {
+                // Only keep if it has other identifying information
+                if (tags.ref) {
+                  name = `Viewpoint ${tags.ref}`;
+                } else if (tags.ele && parseInt(tags.ele) > 0) {
+                  name = `${tags.ele}m Viewpoint`;
+                } else if (tags.natural) {
+                  name = `${tags.natural} Viewpoint`;
                 } else {
-                  description = 'Scenic viewpoint offering panoramic views of the surrounding landscape';
+                  return null; // Skip generic viewpoints
                 }
               }
 
-              // Enhance name if it's generic
-              let name = tags.name || 'Scenic Viewpoint';
-              if (name === 'Scenic Viewpoint' || name === 'Viewpoint') {
-                if (tags.ref) name = `Viewpoint ${tags.ref}`;
-                else if (tags.ele) name = `${tags.ele}m Viewpoint`;
-                else if (tags.natural) name = `${tags.natural} Viewpoint`;
+              // Create more detailed descriptions based on available tags
+              let description = tags.description || tags.note || '';
+              
+              // Skip if description is too generic
+              if (description === 'Scenic viewpoint offering panoramic views of the surrounding landscape' ||
+                  description === 'Beautiful views' ||
+                  description === 'Nice view' ||
+                  description.length < 10) {
+                // Try to create a better description from available information
+                const parts = [];
+                if (tags.natural) parts.push(`Stunning ${tags.natural} vistas`);
+                if (tags.mountain_range) parts.push(`overlooking the ${tags.mountain_range}`);
+                if (tags.ele && parseInt(tags.ele) > 1000) parts.push(`from ${tags.ele}m elevation`);
+                if (tags.direction) parts.push(`facing ${tags.direction}`);
+                
+                if (parts.length > 0) {
+                  description = parts.join(' ');
+                } else if (tags.wikipedia || tags.website) {
+                  description = `Notable scenic viewpoint with documented significance`;
+                } else {
+                  description = `Elevated viewpoint offering scenic vistas`;
+                }
               }
               
               return {
@@ -123,7 +143,7 @@ export const useScenicViewpoints = (bounds: L.LatLngBounds | null, enabled: bool
               };
             }).filter(viewpoint => viewpoint !== null);
             
-            console.log(`🏔️ Processed ${viewpoints.length} valid scenic viewpoints`);
+            console.log(`🏔️ Processed ${viewpoints.length} valid scenic viewpoints (filtered out generic ones)`);
             setScenicViewpoints(viewpoints);
             setError(null);
             return;

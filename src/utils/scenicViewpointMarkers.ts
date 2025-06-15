@@ -1,3 +1,4 @@
+
 import L from 'leaflet';
 import { ScenicViewpoint } from '@/hooks/useScenicViewpoints';
 
@@ -24,8 +25,9 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
     icon: viewpointIcon
   });
 
-  // Create popup content with enhanced image handling
+  // Enhanced image handling with placeholder thumbnails for named viewpoints
   const getImageHtml = () => {
+    // For viewpoints with existing images
     if (viewpoint.image) {
       let imageUrl = viewpoint.image;
       
@@ -62,6 +64,39 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
         `;
       }
     }
+    
+    // For named viewpoints without images, add scenic placeholder thumbnails
+    if (viewpoint.name && 
+        !viewpoint.name.includes('Viewpoint') && 
+        !viewpoint.name.includes('View Point') &&
+        viewpoint.name.length > 5) {
+      
+      // Select placeholder based on viewpoint characteristics
+      let placeholderImage = 'photo-1470071459604-3b5ec3a7fe05'; // Default: foggy mountain summit
+      
+      if (viewpoint.elevation && parseInt(viewpoint.elevation) > 2000) {
+        placeholderImage = 'photo-1458668383970-8ddd3927deed'; // High elevation: mountain alps
+      } else if (viewpoint.description?.toLowerCase().includes('river') || 
+                 viewpoint.description?.toLowerCase().includes('valley')) {
+        placeholderImage = 'photo-1482938289607-e9573fc25ebb'; // River/valley views
+      } else if (viewpoint.description?.toLowerCase().includes('sun') || 
+                 viewpoint.direction?.toLowerCase().includes('east') ||
+                 viewpoint.direction?.toLowerCase().includes('west')) {
+        placeholderImage = 'photo-1469474968028-56623f02e42e'; // Sunrise/sunset views
+      } else if (viewpoint.elevation && parseInt(viewpoint.elevation) < 500) {
+        placeholderImage = 'photo-1501854140801-50d01698950b'; // Lower elevation: green mountains
+      }
+      
+      return `
+        <div class="mb-3">
+          <img src="https://images.unsplash.com/${placeholderImage}?w=200&h=120&fit=crop" 
+               alt="${viewpoint.name} scenic view" 
+               class="w-full h-24 object-cover rounded-lg shadow-sm border" />
+          <div class="text-xs text-gray-500 mt-1 text-center">Representative scenic view</div>
+        </div>
+      `;
+    }
+    
     return '';
   };
 

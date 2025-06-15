@@ -2,8 +2,16 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useMap } from './MapProvider';
-import { Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, AlertTriangle } from 'lucide-react';
+import { Settings, Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, AlertTriangle } from 'lucide-react';
 
 const MapControls = () => {
   const { 
@@ -23,86 +31,107 @@ const MapControls = () => {
     toggleGDELTEvents
   } = useMap();
 
+  const layerOptions = [
+    {
+      id: 'rail',
+      label: 'Rail/Subway',
+      icon: Train,
+      color: 'bg-blue-500',
+      checked: showRailTransit,
+      toggle: toggleRailTransit
+    },
+    {
+      id: 'tram',
+      label: 'Trams',
+      icon: Zap,
+      color: 'bg-orange-500',
+      checked: showTramTransit,
+      toggle: toggleTramTransit
+    },
+    {
+      id: 'bus',
+      label: 'Bus Lines',
+      icon: Bus,
+      color: 'bg-green-500',
+      checked: showBusTransit,
+      toggle: toggleBusTransit
+    },
+    {
+      id: 'vegetarian',
+      label: 'Vegetarian Restaurants',
+      icon: Leaf,
+      color: 'bg-green-500',
+      checked: showVegetarianRestaurants,
+      toggle: toggleVegetarianRestaurants
+    },
+    {
+      id: 'non-vegetarian',
+      label: 'Non-Vegetarian Restaurants',
+      icon: UtensilsCrossed,
+      color: 'bg-red-500',
+      checked: showNonVegetarianRestaurants,
+      toggle: toggleNonVegetarianRestaurants
+    },
+    {
+      id: 'historic',
+      label: 'Historic Places',
+      icon: Building2,
+      color: 'bg-amber-600',
+      checked: showHistoricPlaces,
+      toggle: toggleHistoricPlaces
+    },
+    {
+      id: 'events',
+      label: 'Live Events',
+      icon: AlertTriangle,
+      color: 'bg-red-500',
+      checked: showGDELTEvents,
+      toggle: toggleGDELTEvents
+    }
+  ];
+
   return (
-    <Card className="absolute top-16 right-4 p-3 space-y-3 z-[2000] bg-white/95 backdrop-blur-sm border shadow-lg w-auto min-w-0">
-      <div className="flex flex-col space-y-2 items-center">
-        <Button
-          variant={showRailTransit ? "default" : "outline"}
-          size="sm"
-          onClick={toggleRailTransit}
-          className="flex items-center gap-2 w-full justify-start text-xs px-3 py-1.5 min-w-[180px]"
+    <Card className="absolute top-16 right-4 p-2 z-[2000] bg-white/95 backdrop-blur-sm border shadow-lg">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Settings size={16} />
+            Map Layers
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent 
+          className="w-64 bg-white border shadow-lg z-[2001]" 
+          align="end"
+          side="bottom"
         >
-          <Train size={14} />
-          <div className="w-4 h-1 bg-blue-500 rounded mr-1"></div>
-          Rail/Subway
-        </Button>
-
-        <Button
-          variant={showTramTransit ? "default" : "outline"}
-          size="sm"
-          onClick={toggleTramTransit}
-          className="flex items-center gap-2 w-full justify-start text-xs px-3 py-1.5 min-w-[180px]"
-        >
-          <Zap size={14} />
-          <div className="w-4 h-1 bg-orange-500 rounded mr-1"></div>
-          Trams
-        </Button>
-        
-        <Button
-          variant={showBusTransit ? "default" : "outline"}
-          size="sm"
-          onClick={toggleBusTransit}
-          className="flex items-center gap-2 w-full justify-start text-xs px-3 py-1.5 min-w-[180px]"
-        >
-          <Bus size={14} />
-          <div className="w-4 h-1 bg-green-500 rounded mr-1"></div>
-          Bus Lines
-        </Button>
-        
-        <Button
-          variant={showVegetarianRestaurants ? "default" : "outline"}
-          size="sm"
-          onClick={toggleVegetarianRestaurants}
-          className="flex items-center gap-2 w-full justify-start text-xs px-3 py-1.5 min-w-[180px]"
-        >
-          <Leaf size={14} />
-          <div className="w-3 h-3 bg-green-500 rounded-full mr-1"></div>
-          Vegetarian
-        </Button>
-
-        <Button
-          variant={showNonVegetarianRestaurants ? "default" : "outline"}
-          size="sm"
-          onClick={toggleNonVegetarianRestaurants}
-          className="flex items-center gap-2 w-full justify-start text-xs px-3 py-1.5 min-w-[180px]"
-        >
-          <UtensilsCrossed size={14} />
-          <div className="w-3 h-3 bg-red-500 rounded-full mr-1"></div>
-          Non-Vegetarian
-        </Button>
-
-        <Button
-          variant={showHistoricPlaces ? "default" : "outline"}
-          size="sm"
-          onClick={toggleHistoricPlaces}
-          className="flex items-center gap-2 w-full justify-start text-xs px-3 py-1.5 min-w-[180px]"
-        >
-          <Building2 size={14} />
-          <div className="w-3 h-3 bg-amber-600 rounded-full mr-1"></div>
-          Historic Places
-        </Button>
-
-        <Button
-          variant={showGDELTEvents ? "default" : "outline"}
-          size="sm"
-          onClick={toggleGDELTEvents}
-          className="flex items-center gap-2 w-full justify-start text-xs px-3 py-1.5 min-w-[180px]"
-        >
-          <AlertTriangle size={14} />
-          <div className="w-3 h-3 bg-red-500 rounded-full mr-1 animate-pulse"></div>
-          Live Events
-        </Button>
-      </div>
+          <DropdownMenuLabel>Toggle Map Layers</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          
+          <div className="p-2 space-y-3">
+            {layerOptions.map((option) => {
+              const IconComponent = option.icon;
+              return (
+                <div key={option.id} className="flex items-center space-x-3">
+                  <Checkbox
+                    id={option.id}
+                    checked={option.checked}
+                    onCheckedChange={option.toggle}
+                    className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  />
+                  <label
+                    htmlFor={option.id}
+                    className="flex items-center gap-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                  >
+                    <IconComponent size={14} />
+                    <div className={`w-3 h-3 rounded-full ${option.color} ${option.id === 'events' && option.checked ? 'animate-pulse' : ''}`}></div>
+                    {option.label}
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </Card>
   );
 };

@@ -15,8 +15,8 @@ const GDELTEventsManager: React.FC<GDELTEventsManagerProps> = ({ map }) => {
   const lastBoundsRef = useRef<L.LatLngBounds | null>(null);
   const [currentBounds, setCurrentBounds] = React.useState<L.LatLngBounds | null>(null);
 
-  // Removed zoom level restriction - now shows events at any zoom level
-  const shouldFetch = showGDELTEvents && currentBounds && map;
+  // Fixed the boolean check
+  const shouldFetch = showGDELTEvents && currentBounds !== null && map !== null;
 
   const { events, loading, error } = useGDELTEvents(currentBounds, shouldFetch);
 

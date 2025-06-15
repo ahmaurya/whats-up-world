@@ -1,4 +1,3 @@
-
 export interface GeocodedImage {
   id: string;
   latitude: number;
@@ -23,8 +22,9 @@ export interface ImageSearchParams {
 }
 
 class ImageDataService {
-  private flickrApiKey = 'YOUR_FLICKR_API_KEY'; // Will need to be configured
-  private mapillaryApiKey = 'YOUR_MAPILLARY_API_KEY'; // Will need to be configured
+  private flickrApiKey = 'YOUR_FLICKR_API_KEY'; // Still needs to be configured
+  private mapillaryApiKey = 'MLY|30022086214104471|f378eb64d5d05179d363d31c87c41a8f';
+  private nasaApiKey = 'Vtvhfp4Wn05UqQ6AsD2Pj7QhCa1yNNSPicpBhAqQ';
 
   async fetchFlickrImages(params: ImageSearchParams): Promise<GeocodedImage[]> {
     try {
@@ -119,7 +119,7 @@ class ImageDataService {
       nasaUrl.searchParams.append('lon', centerLon.toString());
       nasaUrl.searchParams.append('lat', centerLat.toString());
       nasaUrl.searchParams.append('dim', '0.5');
-      nasaUrl.searchParams.append('api_key', 'DEMO_KEY'); // Using demo key for now
+      nasaUrl.searchParams.append('api_key', this.nasaApiKey);
 
       console.log('🛰️ Fetching NASA imagery for center point:', { centerLat, centerLon });
       
@@ -182,10 +182,12 @@ class ImageDataService {
     console.log('🖼️ Fetching images from all sources...');
     
     const promises = [
-      // For now, using sample data. Uncomment when API keys are configured:
+      // Mapillary and NASA are now enabled with your API keys
+      this.fetchMapillaryImages(params),
+      this.fetchNASAImages(params),
+      // Flickr still needs API key configuration
       // this.fetchFlickrImages(params),
-      // this.fetchMapillaryImages(params),
-      // this.fetchNASAImages(params),
+      // Keep sample data for demonstration
       Promise.resolve(this.getSampleImages(params))
     ];
 

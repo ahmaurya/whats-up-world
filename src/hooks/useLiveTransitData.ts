@@ -38,18 +38,46 @@ export const useLiveTransitData = (map: L.Map | null) => {
   // Parse GTFS-RT protobuf data
   const parseGTFSRealtime = async (arrayBuffer: ArrayBuffer, vehicleType: 'bus' | 'rail' | 'tram', operator: string): Promise<LiveVehicle[]> => {
     try {
-      // Correct import for gtfs-realtime-bindings
+      console.log(`🔍 Parsing GTFS-RT data for ${vehicleType} from ${operator}, buffer size: ${arrayBuffer.byteLength} bytes`);
+      
       const gtfsRealtime = await import('gtfs-realtime-bindings');
       
       const feed = gtfsRealtime.transit_realtime.FeedMessage.decode(new Uint8Array(arrayBuffer));
+      console.log(`📊 Decoded feed with ${feed.entity.length} entities`);
+      
       const vehicles: LiveVehicle[] = [];
 
-      feed.entity.forEach((entity) => {
+      feed.entity.forEach((entity, index) => {
+        console.log(`🚌 Entity ${index}:`, {
+          id: entity.id,
+          hasVehicle: !!entity.vehicle,
+          hasTripUpdate: !!entity.tripUpdate,
+          hasAlert: !!entity.alert
+        });
+        
         if (entity.vehicle) {
           const vehicle = entity.vehicle;
           const position = vehicle.position;
           
+          console.log(`📍 Vehicle ${entity.id} position:`, {
+            hasPosition: !!position,
+            latitude: position?.latitude,
+            longitude: position?.longitude,
+            bearing: position?.bearing,
+            speed: position?.speed,
+            trip: vehicle.trip ? {
+              tripId: vehicle.trip.tripId,
+              routeId: vehicle.trip.routeId,
+              startTime: vehicle.trip.startTime,
+              startDate: vehicle.trip.startDate
+            } : null,
+            timestamp: vehicle.timestamp,
+            occupancyStatus: vehicle.occupancyStatus
+          });
+          
           if (position && position.latitude && position.longitude) {
+            const speed = position.speed ? position.speed * 2.237 : undefined; // Convert m/s to mph
+            
             vehicles.push({
               id: entity.id,
               routeId: vehicle.trip?.routeId || 'unknown',
@@ -57,8 +85,8 @@ export const useLiveTransitData = (map: L.Map | null) => {
               latitude: position.latitude,
               longitude: position.longitude,
               bearing: position.bearing,
-              speed: position.speed ? position.speed * 2.237 : undefined, // Convert m/s to mph
-              timestamp: vehicle.timestamp ? vehicle.timestamp * 1000 : Date.now(),
+              speed: speed,
+              timestamp: vehicle.timestamp ? Number(vehicle.timestamp) * 1000 : Date.now(),
               vehicleType,
               operator,
               occupancyStatus: vehicle.occupancyStatus as any,
@@ -68,15 +96,18 @@ export const useLiveTransitData = (map: L.Map | null) => {
         }
       });
 
+      console.log(`✅ Parsed ${vehicles.length} valid vehicles for ${vehicleType} from ${operator}`);
       return vehicles;
     } catch (error) {
-      console.error('Error parsing GTFS-RT data:', error);
+      console.error(`❌ Error parsing GTFS-RT data for ${vehicleType}:`, error);
       throw error;
     }
   };
 
   // Fetch King County Metro bus positions using real GTFS-RT data
   const fetchKingCountyMetroBuses = async (): Promise<LiveVehicle[]> => {
+    console.log('🚌 Fetching King County Metro bus data...');
+    
     // King County Metro GTFS-RT feed
     const response = await fetch('https://s3.amazonaws.com/kcm-alerts-realtime-prod/vehiclepositions.pb', {
       method: 'GET',
@@ -85,16 +116,23 @@ export const useLiveTransitData = (map: L.Map | null) => {
       }
     });
     
+    console.log(`📡 King County Metro API response: ${response.status} ${response.statusText}`);
+    console.log('📋 Response headers:', Object.fromEntries(response.headers.entries()));
+    
     if (!response.ok) {
       throw new Error(`King County Metro API error: ${response.status}`);
     }
 
     const arrayBuffer = await response.arrayBuffer();
+    console.log(`📦 Received ${arrayBuffer.byteLength} bytes from King County Metro`);
+    
     return await parseGTFSRealtime(arrayBuffer, 'bus', 'King County Metro');
   };
 
   // Fetch Sound Transit light rail positions using real GTFS-RT data
   const fetchSoundTransitRail = async (): Promise<LiveVehicle[]> => {
+    console.log('🚊 Fetching Sound Transit rail data...');
+    
     // Sound Transit GTFS-RT feed
     const response = await fetch('https://www.soundtransit.org/GTFS-rt/VehiclePositions.pb', {
       method: 'GET',
@@ -103,19 +141,23 @@ export const useLiveTransitData = (map: L.Map | null) => {
       }
     });
     
+    console.log(`📡 Sound Transit API response: ${response.status} ${response.statusText}`);
+    console.log('📋 Response headers:', Object.fromEntries(response.headers.entries()));
+    
     if (!response.ok) {
       throw new Error(`Sound Transit API error: ${response.status}`);
     }
 
     const arrayBuffer = await response.arrayBuffer();
+    console.log(`📦 Received ${arrayBuffer.byteLength} bytes from Sound Transit`);
+    
     return await parseGTFSRealtime(arrayBuffer, 'rail', 'Sound Transit');
   };
 
   // Fetch Seattle Streetcar positions
   const fetchSeattleStreetcars = async (): Promise<LiveVehicle[]> => {
     // Seattle Streetcar doesn't have a public real-time API
-    // Return empty array for now
-    console.log('Seattle Streetcar does not have a public real-time API available');
+    console.log('🚋 Seattle Streetcar does not have a public real-time API available');
     return [];
   };
 
@@ -129,13 +171,30 @@ export const useLiveTransitData = (map: L.Map | null) => {
     try {
       console.log('🚌 Fetching live transit data for Seattle...');
       
-      const [buses, rail, trams] = await Promise.all([
+      const results = await Promise.allSettled([
         fetchKingCountyMetroBuses(),
         fetchSoundTransitRail(),
         fetchSeattleStreetcars()
       ]);
       
-      console.log(`📊 Live transit data fetched: ${buses.length} buses, ${rail.length} trains, ${trams.length} streetcars`);
+      const buses = results[0].status === 'fulfilled' ? results[0].value : [];
+      const rail = results[1].status === 'fulfilled' ? results[1].value : [];
+      const trams = results[2].status === 'fulfilled' ? results[2].value : [];
+      
+      // Log any errors
+      results.forEach((result, index) => {
+        const types = ['buses', 'rail', 'trams'];
+        if (result.status === 'rejected') {
+          console.error(`❌ Failed to fetch ${types[index]}:`, result.reason);
+        }
+      });
+      
+      console.log(`📊 Final live transit data summary:`, {
+        buses: buses.length,
+        rail: rail.length,
+        trams: trams.length,
+        totalVehicles: buses.length + rail.length + trams.length
+      });
       
       setLiveData({
         buses,
@@ -146,7 +205,6 @@ export const useLiveTransitData = (map: L.Map | null) => {
     } catch (err) {
       console.error('❌ Error fetching live transit data:', err);
       setError('Failed to fetch live transit data');
-      // Set empty data on error instead of fallback
       setLiveData({
         buses: [],
         rail: [],

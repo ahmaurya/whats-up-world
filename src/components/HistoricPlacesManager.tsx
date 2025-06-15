@@ -1,9 +1,9 @@
-
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { useMap } from './MapProvider';
 import { useHistoricPlaces } from '@/hooks/useHistoricPlaces';
 import { isZoomLevelSufficient, createDebouncer } from '@/utils/mapHelpers';
+import { searchHistoricPlaceMedia, MediaLink } from '@/utils/historicPlaceMedia';
 
 interface HistoricPlacesManagerProps {
   map: L.Map | null;
@@ -100,6 +100,39 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
     });
   };
 
+  // Create popup content with media links
+  const createPopupContent = async (place: any): Promise<string> => {
+    // Check if location and date have meaningful values
+    const hasValidLocation = place.county !== 'Unknown County' && place.state !== 'Unknown State';
+    const hasValidDate = place.date_listed !== 'Unknown Date';
+
+    // Search for media content about this historic place
+    const mediaLink = await searchHistoricPlaceMedia(place.name);
+
+    let popupContent = `
+      <div style="max-width: 250px;">
+        <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">${place.name}</h3>
+        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Type:</strong> ${place.resource_type}</p>
+        ${hasValidLocation ? `<p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Location:</strong> ${place.county}, ${place.state}</p>` : ''}
+        ${hasValidDate ? `<p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Date Listed:</strong> ${place.date_listed}</p>` : ''}
+        ${place.nris_reference ? `<p style="margin: 0 0 8px 0; font-size: 12px;"><strong>NRIS Ref:</strong> ${place.nris_reference}</p>` : ''}
+    `;
+
+    if (mediaLink) {
+      const icon = mediaLink.type === 'youtube' ? '📺' : '📷';
+      popupContent += `
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e5e5;">
+          <a href="${mediaLink.url}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-size: 12px; font-weight: 500;">
+            ${icon} ${mediaLink.title}
+          </a>
+        </div>
+      `;
+    }
+
+    popupContent += `</div>`;
+    return popupContent;
+  };
+
   // Update markers when data changes
   useEffect(() => {
     if (!markersLayerRef.current || !showHistoricPlaces) return;
@@ -111,7 +144,7 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
 
     console.log(`🏛️ Adding ${historicPlaces.length} historic places to map`);
 
-    historicPlaces.forEach((place) => {
+    historicPlaces.forEach(async (place) => {
       if (!markersLayerRef.current) return;
 
       const marker = L.marker(
@@ -119,21 +152,10 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
         { icon: createHistoricPlaceIcon() }
       );
 
-      // Check if location and date have meaningful values
-      const hasValidLocation = place.county !== 'Unknown County' && place.state !== 'Unknown State';
-      const hasValidDate = place.date_listed !== 'Unknown Date';
-
-      const popupContent = `
-        <div style="max-width: 250px;">
-          <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">${place.name}</h3>
-          <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Type:</strong> ${place.resource_type}</p>
-          ${hasValidLocation ? `<p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Location:</strong> ${place.county}, ${place.state}</p>` : ''}
-          ${hasValidDate ? `<p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Date Listed:</strong> ${place.date_listed}</p>` : ''}
-          ${place.nris_reference ? `<p style="margin: 0; font-size: 12px;"><strong>NRIS Ref:</strong> ${place.nris_reference}</p>` : ''}
-        </div>
-      `;
-
+      // Create popup content with media links
+      const popupContent = await createPopupContent(place);
       marker.bindPopup(popupContent);
+      
       markersLayerRef.current.addLayer(marker);
     });
   }, [historicPlaces, showHistoricPlaces]);

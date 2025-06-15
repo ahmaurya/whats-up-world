@@ -1,4 +1,3 @@
-
 import { imageCacheService } from './imageCacheService';
 
 export interface GeocodedImage {
@@ -9,7 +8,7 @@ export interface GeocodedImage {
   fullImageUrl: string;
   title: string;
   description?: string;
-  source: 'flickr' | 'mapillary' | 'nasa';
+  source: 'flickr' | 'mapillary' | 'nasa' | 'mapillary-lite';
   author?: string;
   tags?: string[];
 }
@@ -130,6 +129,46 @@ class ImageDataService {
     }
   }
 
+  // New method for quick lite Mapillary fetch
+  async fetchMapillaryImagesLite(params: ImageSearchParams): Promise<GeocodedImage[]> {
+    try {
+      const { bounds } = params;
+      
+      // Mapillary API endpoint for images with small limit for quick response
+      const mapillaryUrl = new URL('https://graph.mapillary.com/images');
+      mapillaryUrl.searchParams.append('access_token', this.mapillaryApiKey);
+      mapillaryUrl.searchParams.append('bbox', `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`);
+      mapillaryUrl.searchParams.append('limit', '8'); // Small number for quick response
+      mapillaryUrl.searchParams.append('fields', 'id,geometry,thumb_1024_url,thumb_256_url');
+
+      console.log('🗺️ Fetching Mapillary images (lite) for bounds:', bounds);
+      
+      const response = await fetch(mapillaryUrl.toString());
+      const data = await response.json();
+
+      if (!data.data) {
+        console.error('Mapillary API error:', data);
+        return [];
+      }
+
+      const results = data.data.map((image: any): GeocodedImage => ({
+        id: `mapillary_${image.id}`,
+        latitude: image.geometry.coordinates[1],
+        longitude: image.geometry.coordinates[0],
+        thumbnailUrl: image.thumb_256_url,
+        fullImageUrl: image.thumb_1024_url,
+        title: 'Street View',
+        description: 'Street-level imagery from Mapillary',
+        source: 'mapillary-lite' as const
+      }));
+
+      return results;
+    } catch (error) {
+      console.error('Error fetching Mapillary images (lite):', error);
+      return [];
+    }
+  }
+
   async fetchNASAImages(params: ImageSearchParams): Promise<GeocodedImage[]> {
     // Check cache first
     const cachedData = imageCacheService.get('nasa', params.bounds);
@@ -181,7 +220,7 @@ class ImageDataService {
     }
   }
 
-  // New method to fetch images progressively with a callback
+  // Updated method to fetch images progressively with lite first approach
   async fetchAllImagesProgressive(
     params: ImageSearchParams, 
     onImagesReceived: (images: GeocodedImage[], source: string) => void
@@ -190,7 +229,19 @@ class ImageDataService {
     
     const allImages: GeocodedImage[] = [];
     
-    // Define the sources to fetch from
+    // First: Quick lite fetch from Mapillary for immediate display
+    try {
+      const liteImages = await this.fetchMapillaryImagesLite(params);
+      if (liteImages.length > 0) {
+        console.log(`🖼️ Received ${liteImages.length} lite images from mapillary`);
+        onImagesReceived(liteImages, 'mapillary-lite');
+        allImages.push(...liteImages);
+      }
+    } catch (error) {
+      console.error('Error fetching lite images from mapillary:', error);
+    }
+
+    // Then: Full fetch from all sources
     const sources = [
       { name: 'mapillary', fetch: () => this.fetchMapillaryImages(params) },
       { name: 'nasa', fetch: () => this.fetchNASAImages(params) },
@@ -205,7 +256,15 @@ class ImageDataService {
         if (images.length > 0) {
           console.log(`🖼️ Received ${images.length} images from ${source.name}`);
           onImagesReceived(images, source.name);
-          allImages.push(...images);
+          
+          // For mapillary, filter out the lite images to avoid duplicates
+          if (source.name === 'mapillary') {
+            const liteImageIds = new Set(allImages.filter(img => img.source === 'mapillary-lite').map(img => img.id));
+            const newImages = images.filter(img => !liteImageIds.has(img.id));
+            allImages.push(...newImages);
+          } else {
+            allImages.push(...images);
+          }
         }
         return images;
       } catch (error) {

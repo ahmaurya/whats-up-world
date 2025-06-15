@@ -153,7 +153,10 @@ export const useLiveTransitData = (map: L.Map | null) => {
       console.log('📡 Calling Supabase function for KCM data...');
       
       const { data, error } = await supabase.functions.invoke('get-live-transit', {
-        body: { agency: 'kcm' }
+        body: JSON.stringify({ agency: 'kcm' }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       console.log(`📡 KCM Supabase Response:`, { 
@@ -217,7 +220,10 @@ export const useLiveTransitData = (map: L.Map | null) => {
       console.log('📡 Calling Supabase function for ST data...');
       
       const { data, error } = await supabase.functions.invoke('get-live-transit', {
-        body: { agency: 'st' }
+        body: JSON.stringify({ agency: 'st' }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       console.log(`📡 ST Supabase Response:`, { 

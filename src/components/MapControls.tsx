@@ -91,7 +91,7 @@ const MapControls = () => {
   ];
 
   return (
-    <Card className="absolute top-16 right-4 p-2 z-[2000] bg-white/95 backdrop-blur-sm border shadow-lg">
+    <Card className="absolute top-4 right-4 p-2 z-[2000] bg-white/95 backdrop-blur-sm border shadow-lg">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" className="flex items-center gap-2">

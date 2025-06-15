@@ -3,48 +3,46 @@ export interface MediaLink {
   type: 'youtube' | 'instagram';
   url: string;
   title: string;
+  description?: string;
 }
 
-export const searchHistoricPlaceMedia = async (placeName: string): Promise<MediaLink | null> => {
+export const searchHistoricPlaceMedia = async (placeName: string): Promise<MediaLink[]> => {
   try {
-    // Clean up the place name for better search results
     const cleanName = placeName
       .replace(/historic|building|site|place/gi, '')
       .trim();
     
-    // First try to find a YouTube video
+    const mediaLinks: MediaLink[] = [];
+    
+    // Always try to find YouTube content
     const youtubeResult = await searchYouTube(cleanName);
     if (youtubeResult) {
-      return youtubeResult;
+      mediaLinks.push(youtubeResult);
     }
     
-    // If no YouTube video found, try Instagram
+    // Always try to find Instagram content
     const instagramResult = await searchInstagram(cleanName);
     if (instagramResult) {
-      return instagramResult;
+      mediaLinks.push(instagramResult);
     }
     
-    return null;
+    return mediaLinks;
   } catch (error) {
     console.error('Error searching for historic place media:', error);
-    return null;
+    return [];
   }
 };
 
 const searchYouTube = async (placeName: string): Promise<MediaLink | null> => {
   try {
-    // Create a search query that's more likely to find historical content
     const searchQuery = `${placeName} history historical significance`;
     const encodedQuery = encodeURIComponent(searchQuery);
     
-    // Use YouTube's search URL format that works without API key
-    // This creates a search link that users can click to find videos
-    const searchUrl = `https://www.youtube.com/results?search_query=${encodedQuery}`;
-    
     return {
       type: 'youtube',
-      url: searchUrl,
-      title: `Search YouTube for "${placeName}" history`
+      url: `https://www.youtube.com/results?search_query=${encodedQuery}`,
+      title: `Watch videos about "${placeName}"`,
+      description: 'Historical documentaries and tours'
     };
   } catch (error) {
     console.error('Error searching YouTube:', error);
@@ -54,19 +52,17 @@ const searchYouTube = async (placeName: string): Promise<MediaLink | null> => {
 
 const searchInstagram = async (placeName: string): Promise<MediaLink | null> => {
   try {
-    // Create a hashtag-based search for Instagram
     const hashtag = placeName
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, '')
       .replace(/\s+/g, '')
-      .substring(0, 30); // Instagram hashtag length limit
-    
-    const searchUrl = `https://www.instagram.com/explore/tags/${hashtag}/`;
+      .substring(0, 30);
     
     return {
       type: 'instagram',
-      url: searchUrl,
-      title: `Search Instagram for #${hashtag}`
+      url: `https://www.instagram.com/explore/tags/${hashtag}/`,
+      title: `View #${hashtag} posts`,
+      description: 'Photos and stories from visitors'
     };
   } catch (error) {
     console.error('Error searching Instagram:', error);

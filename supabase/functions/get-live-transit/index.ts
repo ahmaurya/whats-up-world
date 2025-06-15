@@ -10,15 +10,25 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url)
-    const agency = url.searchParams.get('agency')
+    // Parse request body to get agency parameter
+    let agency: string | null = null;
     
-    console.log(`Fetching live transit data for agency: ${agency}`)
+    try {
+      const body = await req.json();
+      agency = body.agency;
+      console.log(`📡 Received request body:`, body);
+    } catch (e) {
+      console.log('📝 No valid JSON body, checking URL params...');
+      const url = new URL(req.url);
+      agency = url.searchParams.get('agency');
+    }
+    
+    console.log(`🚌 Fetching live transit data for agency: ${agency}`);
 
     if (!agency) {
       console.error('❌ Missing agency parameter')
       return new Response(
-        JSON.stringify({ error: 'Missing agency parameter. Use ?agency=kcm or ?agency=st' }),
+        JSON.stringify({ error: 'Missing agency parameter. Use agency=kcm or agency=st in request body' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -49,7 +59,7 @@ serve(async (req) => {
         )
     }
 
-    console.log(`Fetching from ${agencyName} API: ${apiUrl}`)
+    console.log(`🔗 Fetching from ${agencyName} API: ${apiUrl}`)
 
     const response = await fetch(apiUrl, {
       method: 'GET',
@@ -59,15 +69,28 @@ serve(async (req) => {
       }
     })
 
-    console.log(`${agencyName} API response status: ${response.status}`)
+    console.log(`📊 ${agencyName} API response status: ${response.status}`)
+    console.log(`📊 ${agencyName} API response headers:`, Object.fromEntries(response.headers.entries()))
 
     if (!response.ok) {
       console.error(`❌ ${agencyName} API error: ${response.status} ${response.statusText}`)
-      throw new Error(`${agencyName} API error: ${response.status}`)
+      const errorText = await response.text();
+      console.error(`❌ Error response body: ${errorText}`);
+      
+      return new Response(
+        JSON.stringify({ 
+          error: `${agencyName} API error: ${response.status}`,
+          details: errorText
+        }),
+        { 
+          status: 502, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
     const data = await response.arrayBuffer()
-    console.log(`✅ Received ${data.byteLength} bytes from ${agencyName}`)
+    console.log(`✅ Successfully received ${data.byteLength} bytes from ${agencyName}`)
 
     return new Response(data, {
       headers: {
@@ -78,12 +101,14 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('❌ Error fetching live transit data:', error)
+    console.error('❌ Error in live transit function:', error)
+    console.error('❌ Error stack:', error.stack)
     
     return new Response(
       JSON.stringify({ 
         error: 'Failed to fetch live transit data',
-        details: error.message 
+        details: error.message,
+        type: error.constructor.name
       }),
       { 
         status: 500, 

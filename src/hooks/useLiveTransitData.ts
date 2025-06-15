@@ -147,9 +147,26 @@ export const useLiveTransitData = (map: L.Map | null) => {
         throw new Error('No data received from API');
       }
 
-      // The data should be an ArrayBuffer from the edge function
-      const arrayBuffer = data instanceof ArrayBuffer ? data : new ArrayBuffer(0);
-      console.log(`📦 Received ${arrayBuffer.byteLength} bytes from King County Metro via Supabase`);
+      // Convert the data to ArrayBuffer if it's not already
+      let arrayBuffer: ArrayBuffer;
+      if (data instanceof ArrayBuffer) {
+        arrayBuffer = data;
+      } else if (data instanceof Uint8Array) {
+        arrayBuffer = data.buffer;
+      } else if (typeof data === 'string') {
+        // If it's base64 encoded
+        const binaryString = atob(data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        arrayBuffer = bytes.buffer;
+      } else {
+        console.error('❌ Unexpected data format:', typeof data);
+        throw new Error('Unexpected data format received');
+      }
+      
+      console.log(`📦 Processing ${arrayBuffer.byteLength} bytes from King County Metro`);
       
       return await parseGTFSRealtime(arrayBuffer, 'bus', 'King County Metro');
     } catch (error) {
@@ -179,9 +196,26 @@ export const useLiveTransitData = (map: L.Map | null) => {
         throw new Error('No data received from API');
       }
 
-      // The data should be an ArrayBuffer from the edge function
-      const arrayBuffer = data instanceof ArrayBuffer ? data : new ArrayBuffer(0);
-      console.log(`📦 Received ${arrayBuffer.byteLength} bytes from Sound Transit via Supabase`);
+      // Convert the data to ArrayBuffer if it's not already
+      let arrayBuffer: ArrayBuffer;
+      if (data instanceof ArrayBuffer) {
+        arrayBuffer = data;
+      } else if (data instanceof Uint8Array) {
+        arrayBuffer = data.buffer;
+      } else if (typeof data === 'string') {
+        // If it's base64 encoded
+        const binaryString = atob(data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        arrayBuffer = bytes.buffer;
+      } else {
+        console.error('❌ Unexpected data format:', typeof data);
+        throw new Error('Unexpected data format received');
+      }
+      
+      console.log(`📦 Processing ${arrayBuffer.byteLength} bytes from Sound Transit`);
       
       return await parseGTFSRealtime(arrayBuffer, 'rail', 'Sound Transit');
     } catch (error) {

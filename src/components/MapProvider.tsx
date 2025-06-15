@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface MapContextType {
@@ -53,7 +54,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
   const [showTramTransit, setShowTramTransit] = useState(false);
   const [showBusTransit, setShowBusTransit] = useState(false);
   const [showRestaurants, setShowRestaurants] = useState(false);
-  const [showVegetarianRestaurants, setShowVegetarianRestaurants] = useState(true);
+  const [showVegetarianRestaurants, setShowVegetarianRestaurants] = useState(false);
   const [showNonVegetarianRestaurants, setShowNonVegetarianRestaurants] = useState(false);
   const [showHistoricPlaces, setShowHistoricPlaces] = useState(false);
   const [showCafes, setShowCafes] = useState(false);

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -11,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMap } from './MapProvider';
-import { Settings, Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, Coffee, Eye, ShoppingBasket } from 'lucide-react';
+import { Settings, Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, Coffee, Eye, ShoppingBasket, CircleParking } from 'lucide-react';
 
 const MapControls = () => {
   const { 
@@ -32,7 +31,9 @@ const MapControls = () => {
     showScenicViewpoints,
     toggleScenicViewpoints,
     showFarmersMarkets,
-    toggleFarmersMarkets
+    toggleFarmersMarkets,
+    showParking,
+    toggleParking
   } = useMap();
 
   const layerOptions = [
@@ -91,6 +92,14 @@ const MapControls = () => {
       color: 'bg-green-600',
       checked: showFarmersMarkets,
       toggle: toggleFarmersMarkets
+    },
+    {
+      id: 'parking',
+      label: 'Free Parking',
+      icon: CircleParking,
+      color: 'bg-blue-500',
+      checked: showParking,
+      toggle: toggleParking
     },
     {
       id: 'historic',

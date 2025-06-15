@@ -15,6 +15,17 @@ serve(async (req) => {
     
     console.log(`Fetching live transit data for agency: ${agency}`)
 
+    if (!agency) {
+      console.error('❌ Missing agency parameter')
+      return new Response(
+        JSON.stringify({ error: 'Missing agency parameter. Use ?agency=kcm or ?agency=st' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
     let apiUrl: string
     let agencyName: string
 
@@ -28,8 +39,9 @@ serve(async (req) => {
         agencyName = 'Sound Transit'
         break
       default:
+        console.error(`❌ Invalid agency parameter: ${agency}`)
         return new Response(
-          JSON.stringify({ error: 'Invalid agency parameter' }),
+          JSON.stringify({ error: `Invalid agency parameter: ${agency}. Use 'kcm' or 'st'` }),
           { 
             status: 400, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -37,7 +49,7 @@ serve(async (req) => {
         )
     }
 
-    console.log(`Fetching from API: ${apiUrl}`)
+    console.log(`Fetching from ${agencyName} API: ${apiUrl}`)
 
     const response = await fetch(apiUrl, {
       method: 'GET',
@@ -47,14 +59,15 @@ serve(async (req) => {
       }
     })
 
-    console.log(`API response status: ${response.status}`)
+    console.log(`${agencyName} API response status: ${response.status}`)
 
     if (!response.ok) {
+      console.error(`❌ ${agencyName} API error: ${response.status} ${response.statusText}`)
       throw new Error(`${agencyName} API error: ${response.status}`)
     }
 
     const data = await response.arrayBuffer()
-    console.log(`Received ${data.byteLength} bytes from ${agencyName}`)
+    console.log(`✅ Received ${data.byteLength} bytes from ${agencyName}`)
 
     return new Response(data, {
       headers: {
@@ -65,7 +78,7 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('Error fetching live transit data:', error)
+    console.error('❌ Error fetching live transit data:', error)
     
     return new Response(
       JSON.stringify({ 

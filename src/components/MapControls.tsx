@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMap } from './MapProvider';
-import { Settings, Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, Coffee } from 'lucide-react';
+import { Settings, Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, Coffee, Eye } from 'lucide-react';
 
 const MapControls = () => {
   const { 
@@ -28,7 +28,9 @@ const MapControls = () => {
     showHistoricPlaces,
     toggleHistoricPlaces,
     showCafes,
-    toggleCafes
+    toggleCafes,
+    showScenicViewpoints,
+    toggleScenicViewpoints
   } = useMap();
 
   const layerOptions = [
@@ -87,6 +89,14 @@ const MapControls = () => {
       color: 'bg-amber-600',
       checked: showHistoricPlaces,
       toggle: toggleHistoricPlaces
+    },
+    {
+      id: 'scenic-viewpoints',
+      label: 'Scenic Viewpoints',
+      icon: Eye,
+      color: 'bg-indigo-600',
+      checked: showScenicViewpoints,
+      toggle: toggleScenicViewpoints
     }
   ];
 

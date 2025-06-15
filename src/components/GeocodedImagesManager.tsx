@@ -93,6 +93,7 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
   const { images, loading, error } = useGeocodedImages(visible ? mapBounds : null);
 
   // Function to select up to 100 non-overlapping images spread across the visible map
+  // NASA images are always included regardless of the limit
   const selectNonOverlappingImages = (allImages: GeocodedImage[], currentViewBounds: any, maxImages: number = 100): GeocodedImage[] => {
     if (!currentViewBounds || !map) return [];
     
@@ -106,11 +107,15 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
 
     if (visibleImages.length === 0) return [];
 
-    // Sort by source diversity and quality
-    const sortedImages = visibleImages.sort((a, b) => {
-      const sourceOrder = { 'nasa': 0, 'mapillary': 1, 'flickr': 2 };
+    // Separate NASA images from others - NASA images are always included
+    const nasaImages = visibleImages.filter(image => image.source === 'nasa');
+    const otherImages = visibleImages.filter(image => image.source !== 'nasa');
+
+    // Sort other images by source diversity and quality
+    const sortedOtherImages = otherImages.sort((a, b) => {
+      const sourceOrder = { 'mapillary': 0, 'flickr': 1 };
       if (a.source !== b.source) {
-        return (sourceOrder[a.source] || 3) - (sourceOrder[b.source] || 3);
+        return (sourceOrder[a.source] || 2) - (sourceOrder[b.source] || 2);
       }
       return a.id.localeCompare(b.id);
     });
@@ -118,7 +123,29 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
     const selectedImages: GeocodedImage[] = [];
     const minDistancePixels = 80; // Minimum distance between images in pixels
 
-    for (const image of sortedImages) {
+    // First, add all NASA images (they're always included)
+    for (const nasaImage of nasaImages) {
+      const imagePoint = map.latLngToLayerPoint([nasaImage.latitude, nasaImage.longitude]);
+      
+      // Check if this NASA image overlaps with any already selected images
+      let overlaps = false;
+      for (const selectedImage of selectedImages) {
+        const selectedPoint = map.latLngToLayerPoint([selectedImage.latitude, selectedImage.longitude]);
+        const distance = imagePoint.distanceTo(selectedPoint);
+        
+        if (distance < minDistancePixels) {
+          overlaps = true;
+          break;
+        }
+      }
+
+      if (!overlaps) {
+        selectedImages.push(nasaImage);
+      }
+    }
+
+    // Then add other images up to the limit
+    for (const image of sortedOtherImages) {
       if (selectedImages.length >= maxImages) break;
 
       // Convert lat/lng to pixel coordinates
@@ -141,7 +168,9 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
       }
     }
 
-    console.log(`🖼️ Selected ${selectedImages.length} non-overlapping images from ${visibleImages.length} visible images`);
+    const nasaCount = selectedImages.filter(img => img.source === 'nasa').length;
+    const otherCount = selectedImages.length - nasaCount;
+    console.log(`🖼️ Selected ${selectedImages.length} non-overlapping images (${nasaCount} NASA, ${otherCount} others) from ${visibleImages.length} visible images`);
     return selectedImages;
   };
 

@@ -33,28 +33,38 @@ export const useHistoricPlaces = (bounds: L.LatLngBounds | null, enabled: boolea
         const north = bounds.getNorth();
         const east = bounds.getEast();
 
-        // Query the National Register of Historic Places API
-        const response = await fetch(
-          `https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Historic_Places/FeatureServer/0/query?` +
-          `where=1%3D1&` +
-          `geometry=${west},${south},${east},${north}&` +
-          `geometryType=esriGeometryEnvelope&` +
-          `spatialRel=esriSpatialRelIntersects&` +
-          `outFields=*&` +
-          `returnGeometry=true&` +
-          `f=json&` +
-          `resultRecordCount=100`
-        );
+        // Construct the ArcGIS REST API URL with proper parameter encoding
+        const baseUrl = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Historic_Places/FeatureServer/0/query';
+        const params = new URLSearchParams({
+          where: '1=1',
+          geometry: `${west},${south},${east},${north}`,
+          geometryType: 'esriGeometryEnvelope',
+          spatialRel: 'esriSpatialRelIntersects',
+          outFields: '*',
+          returnGeometry: 'true',
+          f: 'json',
+          resultRecordCount: '100'
+        });
+
+        const url = `${baseUrl}?${params.toString()}`;
+        console.log('🏛️ Requesting URL:', url);
+
+        const response = await fetch(url);
 
         if (!response.ok) {
-          throw new Error('Failed to fetch historic places');
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
         
         console.log('🏛️ Raw API response:', data);
         
-        if (data.features) {
+        // Check for ArcGIS API errors
+        if (data.error) {
+          throw new Error(`ArcGIS API error: ${data.error.message || 'Unknown error'}`);
+        }
+        
+        if (data.features && Array.isArray(data.features)) {
           const places: HistoricPlace[] = data.features.map((feature: any, index: number) => ({
             id: feature.attributes.OBJECTID?.toString() || `historic-${index}`,
             name: feature.attributes.RESNAME || feature.attributes.NAME || 'Historic Place',
@@ -67,8 +77,13 @@ export const useHistoricPlaces = (bounds: L.LatLngBounds | null, enabled: boolea
           }));
 
           console.log(`🏛️ Fetched ${places.length} historic places:`, places);
-          console.log('🏛️ Sample place data:', places[0]);
+          if (places.length > 0) {
+            console.log('🏛️ Sample place data:', places[0]);
+          }
           setHistoricPlaces(places);
+        } else {
+          console.log('🏛️ No features found in response');
+          setHistoricPlaces([]);
         }
       } catch (err) {
         console.error('Error fetching historic places:', err);

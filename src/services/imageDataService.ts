@@ -69,7 +69,7 @@ class ImageDataService {
         fullImageUrl: photo.url_m || `https://live.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}_m.jpg`,
         title: photo.title,
         description: photo.description?._content,
-        source: 'flickr',
+        source: 'flickr' as const,
         author: photo.ownername,
         tags: photo.tags?.split(' ').filter(Boolean)
       }));
@@ -118,7 +118,7 @@ class ImageDataService {
         fullImageUrl: image.thumb_1024_url,
         title: 'Street View',
         description: 'Street-level imagery from Mapillary',
-        source: 'mapillary'
+        source: 'mapillary' as const
       }));
 
       // Cache the results
@@ -179,6 +179,46 @@ class ImageDataService {
       console.error('Error fetching NASA images:', error);
       return [];
     }
+  }
+
+  // New method to fetch images progressively with a callback
+  async fetchAllImagesProgressive(
+    params: ImageSearchParams, 
+    onImagesReceived: (images: GeocodedImage[], source: string) => void
+  ): Promise<GeocodedImage[]> {
+    console.log('🖼️ Fetching images progressively from all sources...');
+    
+    const allImages: GeocodedImage[] = [];
+    
+    // Define the sources to fetch from
+    const sources = [
+      { name: 'mapillary', fetch: () => this.fetchMapillaryImages(params) },
+      { name: 'nasa', fetch: () => this.fetchNASAImages(params) },
+      // Flickr still needs API key configuration
+      // { name: 'flickr', fetch: () => this.fetchFlickrImages(params) },
+    ];
+
+    // Fetch from each source and emit results as they arrive
+    const promises = sources.map(async (source) => {
+      try {
+        const images = await source.fetch();
+        if (images.length > 0) {
+          console.log(`🖼️ Received ${images.length} images from ${source.name}`);
+          onImagesReceived(images, source.name);
+          allImages.push(...images);
+        }
+        return images;
+      } catch (error) {
+        console.error(`Error fetching images from ${source.name}:`, error);
+        return [];
+      }
+    });
+
+    // Wait for all sources to complete
+    await Promise.allSettled(promises);
+    
+    console.log(`🖼️ Completed fetching ${allImages.length} images from all sources`);
+    return allImages;
   }
 
   async fetchAllImages(params: ImageSearchParams): Promise<GeocodedImage[]> {

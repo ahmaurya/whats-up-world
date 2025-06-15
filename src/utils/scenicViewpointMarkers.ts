@@ -1,6 +1,7 @@
 
 import L from 'leaflet';
 import { ScenicViewpoint } from '@/hooks/useScenicViewpoints';
+import { searchUnsplashImages, generateSearchQuery } from './unsplashService';
 
 export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marker => {
   // Create custom scenic viewpoint icon
@@ -25,13 +26,13 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
     icon: viewpointIcon
   });
 
-  // Enhanced image handling with placeholder thumbnails for named viewpoints
-  const getImageHtml = () => {
-    // For viewpoints with existing images
+  // Enhanced image handling with Unsplash integration
+  const getImageHtml = async () => {
+    // First try existing image sources
     if (viewpoint.image) {
       let imageUrl = viewpoint.image;
       
-      // Handle Wikimedia Commons URLs - try to get thumbnail
+      // Handle Wikimedia Commons URLs
       if (imageUrl.includes('wikimedia') || imageUrl.includes('commons')) {
         if (imageUrl.includes('File:')) {
           const fileName = imageUrl.split('File:')[1];
@@ -65,36 +66,30 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
       }
     }
     
-    // For named viewpoints without images, add scenic placeholder thumbnails
+    // Try to get Unsplash image for named viewpoints
     if (viewpoint.name && 
         !viewpoint.name.includes('Viewpoint') && 
         !viewpoint.name.includes('View Point') &&
         viewpoint.name.length > 5) {
       
-      // Select placeholder based on viewpoint characteristics
-      let placeholderImage = 'photo-1470071459604-3b5ec3a7fe05'; // Default: foggy mountain summit
-      
-      if (viewpoint.elevation && parseInt(viewpoint.elevation) > 2000) {
-        placeholderImage = 'photo-1458668383970-8ddd3927deed'; // High elevation: mountain alps
-      } else if (viewpoint.description?.toLowerCase().includes('river') || 
-                 viewpoint.description?.toLowerCase().includes('valley')) {
-        placeholderImage = 'photo-1482938289607-e9573fc25ebb'; // River/valley views
-      } else if (viewpoint.description?.toLowerCase().includes('sun') || 
-                 viewpoint.direction?.toLowerCase().includes('east') ||
-                 viewpoint.direction?.toLowerCase().includes('west')) {
-        placeholderImage = 'photo-1469474968028-56623f02e42e'; // Sunrise/sunset views
-      } else if (viewpoint.elevation && parseInt(viewpoint.elevation) < 500) {
-        placeholderImage = 'photo-1501854140801-50d01698950b'; // Lower elevation: green mountains
+      try {
+        const searchQuery = generateSearchQuery(viewpoint.name, viewpoint.coordinates);
+        console.log(`🖼️ Searching Unsplash for: "${searchQuery}"`);
+        
+        const unsplashImageUrl = await searchUnsplashImages(searchQuery);
+        
+        if (unsplashImageUrl) {
+          return `
+            <div class="mb-3">
+              <img src="${unsplashImageUrl}" alt="${viewpoint.name} scenic view" 
+                   class="w-full h-24 object-cover rounded-lg shadow-sm border" />
+              <div class="text-xs text-gray-500 mt-1 text-center">Photo from Unsplash</div>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('🖼️ Error fetching Unsplash image:', error);
       }
-      
-      return `
-        <div class="mb-3">
-          <img src="https://images.unsplash.com/${placeholderImage}?w=200&h=120&fit=crop" 
-               alt="${viewpoint.name} scenic view" 
-               class="w-full h-24 object-cover rounded-lg shadow-sm border" />
-          <div class="text-xs text-gray-500 mt-1 text-center">Representative scenic view</div>
-        </div>
-      `;
     }
     
     return '';
@@ -167,18 +162,43 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
     
     return links.length > 0 ? `<div class="mt-3">${links.join('')}</div>` : '';
   };
-  
-  const popupContent = `
+
+  // Create popup content with async image loading
+  const createPopupContent = async () => {
+    const imageHtml = await getImageHtml();
+    
+    return `
+      <div class="scenic-viewpoint-popup p-4 min-w-[250px] max-w-[300px]">
+        <h3 class="font-bold text-lg text-gray-800 mb-2 leading-tight">${viewpoint.name}</h3>
+        ${imageHtml}
+        <p class="text-sm text-gray-600 mb-3 leading-relaxed">${viewpoint.description}</p>
+        ${getAdditionalInfo()}
+        ${getExternalLinks()}
+      </div>
+    `;
+  };
+
+  // Set up popup with async content loading
+  marker.on('click', async () => {
+    const popupContent = await createPopupContent();
+    marker.bindPopup(popupContent, {
+      maxWidth: 320,
+      className: 'scenic-viewpoint-popup-container'
+    }).openPopup();
+  });
+
+  // Initial popup setup with basic content (for immediate display)
+  const initialPopupContent = `
     <div class="scenic-viewpoint-popup p-4 min-w-[250px] max-w-[300px]">
       <h3 class="font-bold text-lg text-gray-800 mb-2 leading-tight">${viewpoint.name}</h3>
-      ${getImageHtml()}
+      <div class="mb-3 text-center text-gray-500">Loading image...</div>
       <p class="text-sm text-gray-600 mb-3 leading-relaxed">${viewpoint.description}</p>
       ${getAdditionalInfo()}
       ${getExternalLinks()}
     </div>
   `;
 
-  marker.bindPopup(popupContent, {
+  marker.bindPopup(initialPopupContent, {
     maxWidth: 320,
     className: 'scenic-viewpoint-popup-container'
   });

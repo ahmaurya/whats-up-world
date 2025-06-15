@@ -8,7 +8,7 @@ export interface MediaLink {
   videoId?: string;
 }
 
-export const searchHistoricPlaceMedia = async (placeName: string): Promise<MediaLink[]> => {
+export const searchHistoricPlaceMedia = async (placeName: string, cityName?: string): Promise<MediaLink[]> => {
   try {
     const cleanName = placeName
       .replace(/historic|building|site|place/gi, '')
@@ -16,8 +16,8 @@ export const searchHistoricPlaceMedia = async (placeName: string): Promise<Media
     
     const mediaLinks: MediaLink[] = [];
     
-    // Search for YouTube content using YouTube API
-    const youtubeResults = await searchYouTube(cleanName);
+    // Search for YouTube content using YouTube API with city name
+    const youtubeResults = await searchYouTube(cleanName, cityName);
     mediaLinks.push(...youtubeResults);
     
     return mediaLinks;
@@ -27,11 +27,11 @@ export const searchHistoricPlaceMedia = async (placeName: string): Promise<Media
   }
 };
 
-const searchYouTube = async (placeName: string): Promise<MediaLink[]> => {
+const searchYouTube = async (placeName: string, cityName?: string): Promise<MediaLink[]> => {
   try {
-    // For now, we'll use a direct search URL approach
-    // In production, you would use the YouTube Data API v3
-    const searchQuery = `${placeName} history historical significance documentary`;
+    // Include city name in search query for better results
+    const cityPart = cityName ? ` ${cityName}` : '';
+    const searchQuery = `${placeName}${cityPart} history historical significance documentary`;
     const encodedQuery = encodeURIComponent(searchQuery);
     
     // This is a placeholder implementation
@@ -43,7 +43,7 @@ const searchYouTube = async (placeName: string): Promise<MediaLink[]> => {
     return [{
       type: 'youtube',
       url: `https://www.youtube.com/results?search_query=${encodedQuery}`,
-      title: `Watch "${placeName}" historical videos`,
+      title: `Watch "${placeName}${cityPart}" historical videos`,
       description: 'Historical documentaries and educational content'
     }];
   } catch (error) {
@@ -53,14 +53,15 @@ const searchYouTube = async (placeName: string): Promise<MediaLink[]> => {
 };
 
 // Function to get YouTube API integration (placeholder for actual API implementation)
-export const getYouTubeVideos = async (placeName: string, apiKey?: string): Promise<MediaLink[]> => {
+export const getYouTubeVideos = async (placeName: string, cityName?: string, apiKey?: string): Promise<MediaLink[]> => {
   if (!apiKey) {
     console.log('YouTube API key not provided, using fallback search');
-    return searchYouTube(placeName);
+    return searchYouTube(placeName, cityName);
   }
 
   try {
-    const searchQuery = `${placeName} history historical significance`;
+    const cityPart = cityName ? ` ${cityName}` : '';
+    const searchQuery = `${placeName}${cityPart} history historical significance`;
     const response = await fetch(
       `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQuery)}&type=video&maxResults=2&key=${apiKey}`
     );
@@ -81,6 +82,6 @@ export const getYouTubeVideos = async (placeName: string, apiKey?: string): Prom
     })) || [];
   } catch (error) {
     console.error('Error fetching from YouTube API:', error);
-    return searchYouTube(placeName);
+    return searchYouTube(placeName, cityName);
   }
 };

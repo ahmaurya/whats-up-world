@@ -104,7 +104,9 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
     const hasValidLocation = place.county !== 'Unknown County' && place.state !== 'Unknown State';
     const hasValidDate = place.date_listed !== 'Unknown Date';
 
-    const mediaLinks = await searchHistoricPlaceMedia(place.name);
+    // Extract city name from the place data for better search results
+    const cityName = place.county !== 'Unknown County' ? place.county : undefined;
+    const mediaLinks = await searchHistoricPlaceMedia(place.name, cityName);
 
     let popupContent = `
       <div style="max-width: 320px;">

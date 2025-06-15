@@ -1,9 +1,9 @@
+
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { useMap } from './MapProvider';
 import { useHistoricPlaces } from '@/hooks/useHistoricPlaces';
 import { isZoomLevelSufficient, createDebouncer } from '@/utils/mapHelpers';
-import { searchHistoricPlaceMedia, MediaLink } from '@/utils/historicPlaceMedia';
 
 interface HistoricPlacesManagerProps {
   map: L.Map | null;
@@ -100,13 +100,9 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
     });
   };
 
-  const createPopupContent = async (place: any): Promise<string> => {
+  const createPopupContent = (place: any): string => {
     const hasValidLocation = place.county !== 'Unknown County' && place.state !== 'Unknown State';
     const hasValidDate = place.date_listed !== 'Unknown Date';
-
-    // Extract city name from the place data for better search results
-    const cityName = place.county !== 'Unknown County' ? place.county : undefined;
-    const mediaLinks = await searchHistoricPlaceMedia(place.name, cityName);
 
     let popupContent = `
       <div style="max-width: 320px;">
@@ -115,45 +111,9 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
         ${hasValidLocation ? `<p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Location:</strong> ${place.county}, ${place.state}</p>` : ''}
         ${hasValidDate ? `<p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Date Listed:</strong> ${place.date_listed}</p>` : ''}
         ${place.nris_reference ? `<p style="margin: 0 0 8px 0; font-size: 12px;"><strong>NRIS Ref:</strong> ${place.nris_reference}</p>` : ''}
+      </div>
     `;
 
-    if (mediaLinks.length > 0) {
-      popupContent += `
-        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e5e5;">
-          <h4 style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; color: #666;">📺 Historical Videos:</h4>
-      `;
-
-      mediaLinks.forEach(link => {
-        if (link.thumbnailUrl && link.videoId) {
-          // Show actual video thumbnail and embed for real API results
-          popupContent += `
-            <div style="margin-bottom: 12px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden;">
-              <img src="${link.thumbnailUrl}" style="width: 100%; height: auto; display: block;" alt="Video thumbnail">
-              <div style="padding: 8px;">
-                <a href="${link.url}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">
-                  ${link.title}
-                </a>
-                ${link.description ? `<p style="margin: 0; font-size: 11px; color: #666;">${link.description}</p>` : ''}
-              </div>
-            </div>
-          `;
-        } else {
-          // Fallback for search links
-          popupContent += `
-            <div style="margin-bottom: 8px;">
-              <a href="${link.url}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-size: 12px; font-weight: 500; display: block;">
-                📺 ${link.title}
-              </a>
-              ${link.description ? `<p style="margin: 2px 0 0 0; font-size: 11px; color: #666; padding-left: 16px;">${link.description}</p>` : ''}
-            </div>
-          `;
-        }
-      });
-
-      popupContent += `</div>`;
-    }
-
-    popupContent += `</div>`;
     return popupContent;
   };
 
@@ -168,7 +128,7 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
 
     console.log(`🏛️ Adding ${historicPlaces.length} historic places to map`);
 
-    historicPlaces.forEach(async (place) => {
+    historicPlaces.forEach((place) => {
       if (!markersLayerRef.current) return;
 
       const marker = L.marker(
@@ -176,8 +136,8 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
         { icon: createHistoricPlaceIcon() }
       );
 
-      // Create popup content with media links
-      const popupContent = await createPopupContent(place);
+      // Create popup content without media links
+      const popupContent = createPopupContent(place);
       marker.bindPopup(popupContent);
       
       markersLayerRef.current.addLayer(marker);

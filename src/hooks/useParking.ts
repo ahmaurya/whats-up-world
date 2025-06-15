@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 
 export interface ParkingSpot {
@@ -6,6 +5,19 @@ export interface ParkingSpot {
   name: string;
   coordinates: [number, number]; // [lng, lat]
   type: 'street_side' | 'parking_lane' | 'layby';
+  fee: 'no' | 'yes' | 'unknown';
+  timeLimit?: string;
+  restrictions?: string;
+  surface?: string;
+  capacity?: number;
+  source: 'openstreetmap';
+}
+
+export interface DisabledParkingSpot {
+  id: string;
+  name: string;
+  coordinates: [number, number]; // [lng, lat]
+  type: 'disabled';
   fee: 'no' | 'yes' | 'unknown';
   timeLimit?: string;
   restrictions?: string;
@@ -129,6 +141,111 @@ export const useParking = (bounds?: L.LatLngBounds | null, enabled: boolean = fa
   };
 };
 
+export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: boolean = false) => {
+  const [disabledParkingSpots, setDisabledParkingSpots] = useState<DisabledParkingSpot[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDisabledParkingSpots = useCallback(async (lat: number, lng: number, radius: number = 2000) => {
+    if (!enabled) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log(`♿ Fetching disabled parking spots near ${lat}, ${lng} within ${radius}m`);
+
+      // Overpass API query for disabled parking spots
+      const overpassQuery = `
+        [out:json][timeout:25];
+        (
+          way["amenity"="parking"]["disabled"="yes"](around:${radius},${lat},${lng});
+          way["amenity"="parking"]["disabled"="designated"](around:${radius},${lat},${lng});
+          way["parking"="disabled"](around:${radius},${lat},${lng});
+          way["parking:disabled"="yes"](around:${radius},${lat},${lng});
+          way["parking:disabled"="designated"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["disabled"="yes"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["disabled"="designated"](around:${radius},${lat},${lng});
+          node["parking"="disabled"](around:${radius},${lat},${lng});
+          node["parking:disabled"="yes"](around:${radius},${lat},${lng});
+          node["parking:disabled"="designated"](around:${radius},${lat},${lng});
+        );
+        out center;
+      `;
+
+      const response = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: overpassQuery,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(`♿ Raw disabled parking data:`, data);
+
+      const processedSpots: DisabledParkingSpot[] = data.elements
+        .map((element: any) => {
+          const tags = element.tags || {};
+          
+          // Get coordinates
+          let coordinates: [number, number];
+          if (element.center) {
+            coordinates = [element.center.lon, element.center.lat];
+          } else if (element.lat && element.lon) {
+            coordinates = [element.lon, element.lat];
+          } else {
+            coordinates = [lng, lat]; // fallback
+          }
+
+          return {
+            id: `disabled_parking_${element.id}`,
+            name: tags.name || generateDisabledParkingName(tags),
+            coordinates,
+            type: 'disabled' as const,
+            fee: tags.fee === 'no' || tags.fee === 'free' ? 'no' : (tags.fee ? 'yes' : 'unknown'),
+            timeLimit: tags.maxstay || tags['parking:time_limit'],
+            restrictions: tags.restriction || tags['parking:restriction'],
+            surface: tags.surface,
+            capacity: tags.capacity ? parseInt(tags.capacity) : undefined,
+            source: 'openstreetmap' as const
+          };
+        })
+        .filter((spot: DisabledParkingSpot) => 
+          spot.coordinates[0] !== 0 && spot.coordinates[1] !== 0
+        );
+
+      // Deduplicate disabled parking spots
+      const deduplicatedSpots = deduplicateDisabledParkingSpots(processedSpots);
+
+      console.log(`♿ Processed ${deduplicatedSpots.length} disabled parking spots (${processedSpots.length - deduplicatedSpots.length} duplicates removed)`);
+      setDisabledParkingSpots(deduplicatedSpots);
+
+    } catch (err) {
+      console.error('♿ Error fetching disabled parking spots:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch disabled parking spots');
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  // Fetch when bounds change and enabled
+  useEffect(() => {
+    if (!bounds || !enabled) return;
+
+    const center = bounds.getCenter();
+    fetchDisabledParkingSpots(center.lat, center.lng, 2000);
+  }, [bounds, enabled, fetchDisabledParkingSpots]);
+
+  return {
+    disabledParkingSpots,
+    loading,
+    error,
+    fetchDisabledParkingSpots
+  };
+};
+
 // Helper function to generate parking spot names
 const generateParkingName = (tags: any, type: ParkingSpot['type']): string => {
   if (tags.name) return tags.name;
@@ -213,6 +330,84 @@ const chooseBestParkingSpot = (spots: ParkingSpot[]): ParkingSpot => {
   scoredSpots.sort((a, b) => b.score - a.score);
   
   console.log(`🅿️ Choosing best parking spot from ${spots.length} nearby spots:`, 
+    scoredSpots.map(s => `${s.spot.name} (score: ${s.score})`));
+  
+  return scoredSpots[0].spot;
+};
+
+// Helper function to generate disabled parking spot names
+const generateDisabledParkingName = (tags: any): string => {
+  if (tags.name) return tags.name;
+  
+  const streetName = tags['addr:street'] || 'Unknown Street';
+  return `Disabled Parking - ${streetName}`;
+};
+
+// Deduplication function for disabled parking
+const deduplicateDisabledParkingSpots = (spots: DisabledParkingSpot[]): DisabledParkingSpot[] => {
+  const PROXIMITY_THRESHOLD = 0.0005; // ~50 meters in decimal degrees
+  const uniqueSpots: DisabledParkingSpot[] = [];
+  const processedIds = new Set<string>();
+
+  for (const spot of spots) {
+    if (processedIds.has(spot.id)) continue;
+
+    // Find nearby spots
+    const nearbySpots = spots.filter(other => {
+      if (other.id === spot.id || processedIds.has(other.id)) return false;
+      
+      const distance = Math.sqrt(
+        Math.pow(spot.coordinates[0] - other.coordinates[0], 2) +
+        Math.pow(spot.coordinates[1] - other.coordinates[1], 2)
+      );
+      
+      return distance < PROXIMITY_THRESHOLD;
+    });
+
+    if (nearbySpots.length === 0) {
+      // No duplicates found
+      uniqueSpots.push(spot);
+      processedIds.add(spot.id);
+    } else {
+      // Choose the best spot from the group
+      const allSpots = [spot, ...nearbySpots];
+      const bestSpot = chooseBestDisabledParkingSpot(allSpots);
+      
+      uniqueSpots.push(bestSpot);
+      
+      // Mark all spots in this group as processed
+      allSpots.forEach(s => processedIds.add(s.id));
+    }
+  }
+
+  return uniqueSpots;
+};
+
+// Choose the best disabled parking spot from a group of nearby spots
+const chooseBestDisabledParkingSpot = (spots: DisabledParkingSpot[]): DisabledParkingSpot => {
+  // Score each spot
+  const scoredSpots = spots.map(spot => {
+    let score = 0;
+    
+    // Bonus for having a proper name
+    if (spot.name && !spot.name.includes('Unknown')) score += 3;
+    
+    // Bonus for having capacity information
+    if (spot.capacity) score += 2;
+    
+    // Bonus for having time limit info
+    if (spot.timeLimit) score += 1;
+    
+    // Bonus for having surface info
+    if (spot.surface) score += 1;
+    
+    return { spot, score };
+  });
+  
+  // Sort by score (highest first) and return the best one
+  scoredSpots.sort((a, b) => b.score - a.score);
+  
+  console.log(`♿ Choosing best disabled parking spot from ${spots.length} nearby spots:`, 
     scoredSpots.map(s => `${s.spot.name} (score: ${s.score})`));
   
   return scoredSpots[0].spot;

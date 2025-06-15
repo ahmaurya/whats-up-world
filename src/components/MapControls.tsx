@@ -33,7 +33,9 @@ const MapControls = () => {
     showFarmersMarkets,
     toggleFarmersMarkets,
     showParking,
-    toggleParking
+    toggleParking,
+    showDisabledParking,
+    toggleDisabledParking
   } = useMap();
 
   const layerOptions = [
@@ -116,6 +118,14 @@ const MapControls = () => {
       color: 'bg-indigo-600',
       checked: showScenicViewpoints,
       toggle: toggleScenicViewpoints
+    },
+    {
+      id: 'disabled-parking',
+      label: 'Disabled Parking',
+      icon: CircleParking,
+      color: 'bg-purple-600',
+      checked: showDisabledParking,
+      toggle: toggleDisabledParking
     }
   ];
 

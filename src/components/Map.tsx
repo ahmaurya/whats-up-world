@@ -11,6 +11,7 @@ import HistoricPlacesManager from './HistoricPlacesManager';
 import ScenicViewpointsManager from './ScenicViewpointsManager';
 import FarmersMarketsManager from './FarmersMarketsManager';
 import ParkingManager from './ParkingManager';
+import DisabledParkingManager from './DisabledParkingManager';
 import { Restaurant } from '@/hooks/useRestaurants';
 import { Cafe } from '@/hooks/useCafes';
 
@@ -50,6 +51,7 @@ const Map = () => {
       <ScenicViewpointsManager map={map.current} />
       <FarmersMarketsManager map={map.current} />
       <ParkingManager map={map.current} />
+      <DisabledParkingManager map={map.current} />
       {selectedRestaurant && (
         <RestaurantPopup
           restaurant={selectedRestaurant}

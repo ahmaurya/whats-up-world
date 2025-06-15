@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import L from 'leaflet';
 import { useDisabledParking } from '@/hooks/useParking';
+import { useSeattleDisabledParking } from '@/hooks/useSeattleParking';
 import { useMap } from './MapProvider';
 import { createDisabledParkingMarker } from '@/utils/disabledParkingMarkers';
 
@@ -35,8 +36,52 @@ const DisabledParkingManager: React.FC<DisabledParkingManagerProps> = ({ map }) 
     };
   }, [map]);
 
-  // Fetch disabled parking data
-  const { disabledParkingSpots, loading, error } = useDisabledParking(bounds, showDisabledParking);
+  // Fetch disabled parking data from both sources
+  const { disabledParkingSpots: osmSpots, loading: osmLoading, error: osmError } = useDisabledParking(bounds, showDisabledParking);
+  const { seattleParkingSpots, loading: seattleLoading, error: seattleError, fetchSeattleDisabledParking } = useSeattleDisabledParking();
+
+  // Fetch Seattle data when bounds change
+  useEffect(() => {
+    if (!bounds || !showDisabledParking) return;
+
+    const center = bounds.getCenter();
+    // Only fetch Seattle data if we're in the Seattle area (rough bounds check)
+    if (center.lat >= 47.4 && center.lat <= 47.8 && center.lng >= -122.5 && center.lng <= -122.0) {
+      fetchSeattleDisabledParking(center.lat, center.lng, 2000);
+    }
+  }, [bounds, showDisabledParking, fetchSeattleDisabledParking]);
+
+  // Combine and deduplicate spots from both sources
+  const allDisabledSpots = React.useMemo(() => {
+    const combined = [...osmSpots, ...seattleParkingSpots];
+    
+    // Simple deduplication by distance
+    const PROXIMITY_THRESHOLD = 0.0001; // ~10 meters
+    const uniqueSpots = [];
+    const processedIds = new Set();
+
+    for (const spot of combined) {
+      if (processedIds.has(spot.id)) continue;
+
+      const hasNearbySpot = combined.some(other => {
+        if (other.id === spot.id || processedIds.has(other.id)) return false;
+        
+        const distance = Math.sqrt(
+          Math.pow(spot.coordinates[0] - other.coordinates[0], 2) +
+          Math.pow(spot.coordinates[1] - other.coordinates[1], 2)
+        );
+        
+        return distance < PROXIMITY_THRESHOLD;
+      });
+
+      if (!hasNearbySpot) {
+        uniqueSpots.push(spot);
+        processedIds.add(spot.id);
+      }
+    }
+
+    return uniqueSpots;
+  }, [osmSpots, seattleParkingSpots]);
 
   // Manage marker layer
   useEffect(() => {
@@ -59,10 +104,10 @@ const DisabledParkingManager: React.FC<DisabledParkingManagerProps> = ({ map }) 
   useEffect(() => {
     markerLayer.clearLayers();
 
-    if (showDisabledParking && disabledParkingSpots.length > 0) {
-      console.log(`♿ Adding ${disabledParkingSpots.length} disabled parking markers to map`);
+    if (showDisabledParking && allDisabledSpots.length > 0) {
+      console.log(`♿ Adding ${allDisabledSpots.length} disabled parking markers to map (OSM: ${osmSpots.length}, Seattle: ${seattleParkingSpots.length})`);
       
-      disabledParkingSpots.forEach((spot) => {
+      allDisabledSpots.forEach((spot) => {
         try {
           const marker = createDisabledParkingMarker(spot);
           markerLayer.addLayer(marker);
@@ -71,17 +116,17 @@ const DisabledParkingManager: React.FC<DisabledParkingManagerProps> = ({ map }) 
         }
       });
     }
-  }, [disabledParkingSpots, showDisabledParking, markerLayer]);
+  }, [allDisabledSpots, showDisabledParking, markerLayer, osmSpots.length, seattleParkingSpots.length]);
 
   // Log loading and error states
   useEffect(() => {
-    if (loading) {
+    if (osmLoading || seattleLoading) {
       console.log('♿ Loading disabled parking spots...');
     }
-    if (error) {
-      console.error('♿ Disabled parking spots error:', error);
+    if (osmError || seattleError) {
+      console.error('♿ Disabled parking spots error:', osmError || seattleError);
     }
-  }, [loading, error]);
+  }, [osmLoading, seattleLoading, osmError, seattleError]);
 
   return null;
 };

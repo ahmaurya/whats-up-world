@@ -44,6 +44,48 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
   // Fetch images based on current map bounds
   const { images, loading, error } = useGeocodedImages(mapBounds);
 
+  // Function to select up to 100 images spread evenly across the map
+  const selectDistributedImages = (allImages: GeocodedImage[], maxImages: number = 100): GeocodedImage[] => {
+    if (allImages.length <= maxImages) {
+      return allImages;
+    }
+
+    if (!mapBounds) return allImages.slice(0, maxImages);
+
+    // Create a grid to distribute images evenly
+    const gridSize = Math.ceil(Math.sqrt(maxImages)); // e.g., 10x10 grid for 100 images
+    const latStep = (mapBounds.north - mapBounds.south) / gridSize;
+    const lngStep = (mapBounds.east - mapBounds.west) / gridSize;
+
+    const grid: Map<string, GeocodedImage[]> = new Map();
+
+    // Group images by grid cells
+    allImages.forEach(image => {
+      const latIndex = Math.floor((image.latitude - mapBounds.south) / latStep);
+      const lngIndex = Math.floor((image.longitude - mapBounds.west) / lngStep);
+      const gridKey = `${Math.max(0, Math.min(gridSize - 1, latIndex))}_${Math.max(0, Math.min(gridSize - 1, lngIndex))}`;
+      
+      if (!grid.has(gridKey)) {
+        grid.set(gridKey, []);
+      }
+      grid.get(gridKey)!.push(image);
+    });
+
+    // Select one image from each grid cell, prioritizing cells with fewer images
+    const selectedImages: GeocodedImage[] = [];
+    const gridCells = Array.from(grid.entries()).sort((a, b) => a[1].length - b[1].length);
+
+    for (const [_, cellImages] of gridCells) {
+      if (selectedImages.length >= maxImages) break;
+      
+      // Select the first image from this cell (could be randomized)
+      selectedImages.push(cellImages[0]);
+    }
+
+    console.log(`🖼️ Selected ${selectedImages.length} images from ${allImages.length} total for even distribution`);
+    return selectedImages;
+  };
+
   const createImageMarker = (image: GeocodedImage): L.Marker => {
     // Create custom icon for the thumbnail with source-specific styling
     const sourceColors = {
@@ -109,9 +151,12 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
       map.addLayer(layerGroupRef.current);
     }
 
+    // Select up to 100 distributed images
+    const displayImages = selectDistributedImages(images, 100);
+
     // Create a map of current images for easy lookup
     const currentImagesMap = new Map<string, GeocodedImage>();
-    images.forEach(image => {
+    displayImages.forEach(image => {
       currentImagesMap.set(image.id, image);
     });
 
@@ -129,7 +174,7 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
 
     // Add new markers for images that aren't already displayed
     let newMarkersCount = 0;
-    images.forEach(image => {
+    displayImages.forEach(image => {
       if (!markersRef.current.has(image.id)) {
         const marker = createImageMarker(image);
         markersRef.current.set(image.id, marker);
@@ -144,14 +189,14 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
     // Update the reference to current images
     lastImagesRef.current = currentImagesMap;
 
-    console.log(`🖼️ Updated geocoded images: ${newMarkersCount} new, ${markersToRemove.length} removed, ${images.length} total`);
+    console.log(`🖼️ Updated geocoded images: ${newMarkersCount} new, ${markersToRemove.length} removed, ${displayImages.length} displayed (${images.length} total cached)`);
 
     return () => {
       if (layerGroupRef.current && map && !visible) {
         map.removeLayer(layerGroupRef.current);
       }
     };
-  }, [map, visible, images]);
+  }, [map, visible, images, mapBounds]);
 
   // Handle visibility changes
   useEffect(() => {

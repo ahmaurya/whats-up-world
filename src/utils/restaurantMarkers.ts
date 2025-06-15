@@ -9,13 +9,27 @@ export const createRestaurantMarker = (
   const isVegetarian = restaurant.isVegetarian;
   const markerColor = isVegetarian ? '#22c55e' : '#ef4444';
   
+  // Create restaurant icon matching the legend
+  const restaurantIcon = L.divIcon({
+    html: `
+      <div class="relative flex items-center justify-center">
+        <div class="${isVegetarian ? 'bg-green-500' : 'bg-red-500'} rounded-full p-1 shadow-lg border-2 border-white">
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            ${isVegetarian ? 
+              '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M6 8h4"/><path d="M6 18H4c-1 0-2-1-2-2v-5a6 6 0 0 1 6-6z"/>' :
+              '<path d="m18.5 8.5-1 1-4-4-1 1 4 4-1 1 1 1 4-4 1 1-4 4 1 1 1-1 4-4 1-1-4-4 1-1-1-1-4 4-1-1Z"/><path d="M9 15h6"/><path d="M10 20v-6h4v6"/><path d="M12 20h0"/><path d="M14 14h0"/>'}
+          </svg>
+        </div>
+      </div>
+    `,
+    className: 'restaurant-marker',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -8]
+  });
+  
   const marker = L.marker([restaurant.coordinates[1], restaurant.coordinates[0]], {
-    icon: L.divIcon({
-      className: 'restaurant-marker',
-      html: `<div style="background-color: ${markerColor}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; cursor: pointer;"></div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10]
-    })
+    icon: restaurantIcon
   });
 
   const popupContent = createPopupContent(restaurant, markerColor);

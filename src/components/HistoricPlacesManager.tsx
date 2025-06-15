@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { useMap } from './MapProvider';
@@ -81,22 +80,28 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
     };
   }, [map, showHistoricPlaces, debouncedUpdateBounds]);
 
-  // Create custom icon for historic places
+  // Create custom icon for historic places matching the legend
   const createHistoricPlaceIcon = () => {
     return L.divIcon({
       html: `
-        <div style="
-          background-color: #d97706;
-          border: 2px solid white;
-          border-radius: 50%;
-          width: 12px;
-          height: 12px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        "></div>
+        <div class="relative flex items-center justify-center">
+          <div class="bg-amber-600 rounded-full p-1 shadow-lg border-2 border-white">
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
+              <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/>
+              <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>
+              <path d="M10 6h4"/>
+              <path d="M10 10h4"/>
+              <path d="M10 14h4"/>
+              <path d="M10 18h4"/>
+            </svg>
+          </div>
+        </div>
       `,
       className: 'historic-place-marker',
-      iconSize: [12, 12],
-      iconAnchor: [6, 6]
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+      popupAnchor: [0, -8]
     });
   };
 

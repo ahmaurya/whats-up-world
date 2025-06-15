@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { ScenicViewpoint } from '@/hooks/useScenicViewpoints';
 
 export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marker => {
-  // Create custom scenic viewpoint icon
+  // Create custom scenic viewpoint icon matching the legend
   const viewpointIcon = L.divIcon({
     html: `
       <div class="relative flex items-center justify-center">
@@ -16,9 +16,9 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
       </div>
     `,
     className: 'scenic-viewpoint-marker',
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
-    popupAnchor: [0, -12]
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -8]
   });
 
   const marker = L.marker([viewpoint.coordinates[1], viewpoint.coordinates[0]], {

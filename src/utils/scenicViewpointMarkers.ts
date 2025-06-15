@@ -1,4 +1,3 @@
-
 import L from 'leaflet';
 import { ScenicViewpoint } from '@/hooks/useScenicViewpoints';
 
@@ -7,8 +6,8 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
   const viewpointIcon = L.divIcon({
     html: `
       <div class="relative flex items-center justify-center">
-        <div class="bg-indigo-600 rounded-full p-2 shadow-lg border-2 border-white">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <div class="bg-indigo-600 rounded-full p-1 shadow-lg border-2 border-white">
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
             <circle cx="12" cy="12" r="3"/>
           </svg>
@@ -16,9 +15,9 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
       </div>
     `,
     className: 'scenic-viewpoint-marker',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-    popupAnchor: [0, -16]
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+    popupAnchor: [0, -12]
   });
 
   const marker = L.marker([viewpoint.coordinates[1], viewpoint.coordinates[0]], {

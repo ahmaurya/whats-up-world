@@ -6,6 +6,7 @@ import MapControls from './MapControls';
 import RestaurantPopup from './RestaurantPopup';
 import TransitLinesManager from './TransitLinesManager';
 import RestaurantMarkersManager from './RestaurantMarkersManager';
+import HistoricPlacesManager from './HistoricPlacesManager';
 import { Restaurant } from '@/hooks/useRestaurants';
 
 const Map = () => {
@@ -29,6 +30,7 @@ const Map = () => {
         map={map.current} 
         onRestaurantClick={handleRestaurantClick} 
       />
+      <HistoricPlacesManager map={map.current} />
       {selectedRestaurant && (
         <RestaurantPopup
           restaurant={selectedRestaurant}

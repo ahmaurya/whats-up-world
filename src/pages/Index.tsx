@@ -99,14 +99,14 @@ const Index = () => {
   }
 
   return (
-    <div className="h-screen w-full relative">
+    <div className="h-screen w-full flex flex-col overflow-hidden">
       <Header onCitySelect={handleCitySelect} currentCity={currentCity} />
       
-      {/* Adjust the main content to account for header height */}
-      <div className="pt-16 h-full">
+      {/* Main content container that takes remaining height */}
+      <div className="flex-1 relative overflow-hidden">
         {/* Show user menu only if user is authenticated */}
         {user && (
-          <div className="absolute top-20 left-4 z-[2001]">
+          <div className="absolute top-4 left-4 z-[2001]">
             <UserMenu />
           </div>
         )}

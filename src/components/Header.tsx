@@ -9,7 +9,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onCitySelect, currentCity }) => {
   return (
-    <header className="absolute top-0 left-0 right-0 z-[2000] bg-white shadow-md border-b border-gray-200">
+    <header className="flex-shrink-0 bg-white shadow-md border-b border-gray-200 z-[2000]">
       <div className="flex items-center justify-between px-4 py-3">
         <h1 className="text-xl font-bold text-gray-800">
           What's Up, {currentCity || 'World'}

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Map from '@/components/Map';
 import Header from '@/components/Header';
@@ -19,6 +19,55 @@ const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [currentCity, setCurrentCity] = useState<string>('');
+
+  // Function to reverse geocode coordinates to city name
+  const getCityFromCoordinates = async (lat: number, lon: number) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`
+      );
+      const data = await response.json();
+      
+      if (data && data.address) {
+        const city = data.address.city || 
+                    data.address.town || 
+                    data.address.village || 
+                    data.address.municipality || 
+                    data.address.county ||
+                    'Unknown';
+        return city;
+      }
+    } catch (error) {
+      console.warn('Failed to get city from coordinates:', error);
+    }
+    return null;
+  };
+
+  // Get user's current location and infer city on component mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          console.log(`Inferring city from user location: ${latitude}, ${longitude}`);
+          
+          const inferredCity = await getCityFromCoordinates(latitude, longitude);
+          if (inferredCity) {
+            console.log(`Inferred city: ${inferredCity}`);
+            setCurrentCity(inferredCity);
+          }
+        },
+        (error) => {
+          console.warn('Geolocation failed, keeping default title:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      );
+    }
+  }, []);
 
   const handleCitySelect = (city: City) => {
     console.log('City selected:', city);

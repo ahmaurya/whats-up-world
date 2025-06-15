@@ -135,6 +135,7 @@ export const useLiveTransitData = (map: L.Map | null) => {
       console.log(`✅ Successfully parsed ${vehicles.length} valid vehicles for ${vehicleType} from ${operator}`);
       if (vehicles.length > 0) {
         console.log(`📋 Sample vehicle data:`, vehicles[0]);
+        console.log(`📋 ALL VEHICLES for ${vehicleType}:`, vehicles);
       }
       return vehicles;
     } catch (error) {
@@ -150,38 +151,39 @@ export const useLiveTransitData = (map: L.Map | null) => {
     
     try {
       console.log('📡 Calling Supabase function for KCM data...');
+      
       const { data, error } = await supabase.functions.invoke('get-live-transit', {
         body: { agency: 'kcm' }
       });
 
-      console.log(`📡 KCM API Response received:`, { 
+      console.log(`📡 KCM Supabase Response:`, { 
         hasData: !!data, 
         hasError: !!error,
-        dataType: typeof data,
-        errorDetails: error 
+        data: data,
+        error: error
       });
       
       if (error) {
         console.error(`❌ KCM Supabase function error:`, error);
-        throw new Error(`Supabase function error: ${JSON.stringify(error)}`);
+        throw new Error(`Supabase function error: ${error.message || JSON.stringify(error)}`);
       }
 
       if (!data) {
-        console.error(`❌ No data received from KCM API`);
-        throw new Error('No data received from KCM API');
+        console.error(`❌ No data received from KCM function`);
+        throw new Error('No data received from KCM function');
       }
 
-      console.log('📦 Raw KCM response data:', data);
+      console.log('📦 Complete KCM response data:', data);
 
       // Check if there's an error in the response
-      if (data.error) {
-        console.error(`❌ KCM API returned error:`, data);
-        throw new Error(`API Error: ${data.error} - ${data.details || ''}`);
+      if (!data.success || data.error) {
+        console.error(`❌ KCM function returned error:`, data);
+        throw new Error(`Function Error: ${data.error || 'Unknown error'} - ${data.message || data.details || ''}`);
       }
 
-      if (!data.success || !data.data) {
-        console.error(`❌ Invalid KCM response format:`, data);
-        throw new Error(`Invalid response format from KCM API`);
+      if (!data.data) {
+        console.error(`❌ Invalid KCM response format - missing data:`, data);
+        throw new Error(`Invalid response format from KCM function - no data field`);
       }
 
       // Convert base64 back to ArrayBuffer
@@ -195,7 +197,11 @@ export const useLiveTransitData = (map: L.Map | null) => {
       
       console.log(`📦 Converted to ArrayBuffer of ${arrayBuffer.byteLength} bytes`);
       
-      return await parseGTFSRealtime(arrayBuffer, 'bus', 'King County Metro');
+      const vehicles = await parseGTFSRealtime(arrayBuffer, 'bus', 'King County Metro');
+      console.log(`🚌 KCM FINAL RESULT: ${vehicles.length} buses fetched`);
+      console.log(`🚌 KCM ALL VEHICLES DUMP:`, vehicles);
+      
+      return vehicles;
     } catch (error) {
       console.error('❌ Error in fetchKingCountyMetroBuses:', error);
       console.error('❌ Error stack:', error.stack);
@@ -209,38 +215,39 @@ export const useLiveTransitData = (map: L.Map | null) => {
     
     try {
       console.log('📡 Calling Supabase function for ST data...');
+      
       const { data, error } = await supabase.functions.invoke('get-live-transit', {
         body: { agency: 'st' }
       });
 
-      console.log(`📡 ST API Response received:`, { 
+      console.log(`📡 ST Supabase Response:`, { 
         hasData: !!data, 
         hasError: !!error,
-        dataType: typeof data,
-        errorDetails: error 
+        data: data,
+        error: error
       });
       
       if (error) {
         console.error(`❌ ST Supabase function error:`, error);
-        throw new Error(`Supabase function error: ${JSON.stringify(error)}`);
+        throw new Error(`Supabase function error: ${error.message || JSON.stringify(error)}`);
       }
 
       if (!data) {
-        console.error(`❌ No data received from ST API`);
-        throw new Error('No data received from ST API');
+        console.error(`❌ No data received from ST function`);
+        throw new Error('No data received from ST function');
       }
 
-      console.log('📦 Raw ST response data:', data);
+      console.log('📦 Complete ST response data:', data);
 
       // Check if there's an error in the response
-      if (data.error) {
-        console.error(`❌ ST API returned error:`, data);
-        throw new Error(`API Error: ${data.error} - ${data.details || ''}`);
+      if (!data.success || data.error) {
+        console.error(`❌ ST function returned error:`, data);
+        throw new Error(`Function Error: ${data.error || 'Unknown error'} - ${data.message || data.details || ''}`);
       }
 
-      if (!data.success || !data.data) {
-        console.error(`❌ Invalid ST response format:`, data);
-        throw new Error(`Invalid response format from ST API`);
+      if (!data.data) {
+        console.error(`❌ Invalid ST response format - missing data:`, data);
+        throw new Error(`Invalid response format from ST function - no data field`);
       }
 
       // Convert base64 back to ArrayBuffer
@@ -254,7 +261,11 @@ export const useLiveTransitData = (map: L.Map | null) => {
       
       console.log(`📦 Converted to ArrayBuffer of ${arrayBuffer.byteLength} bytes`);
       
-      return await parseGTFSRealtime(arrayBuffer, 'rail', 'Sound Transit');
+      const vehicles = await parseGTFSRealtime(arrayBuffer, 'rail', 'Sound Transit');
+      console.log(`🚊 ST FINAL RESULT: ${vehicles.length} trains fetched`);
+      console.log(`🚊 ST ALL VEHICLES DUMP:`, vehicles);
+      
+      return vehicles;
     } catch (error) {
       console.error('❌ Error in fetchSoundTransitRail:', error);
       console.error('❌ Error stack:', error.stack);
@@ -290,6 +301,7 @@ export const useLiveTransitData = (map: L.Map | null) => {
       ]);
       
       console.log('📊 All API calls completed. Processing results...');
+      console.log('📊 Raw Promise.allSettled results:', results);
       
       const buses = results[0].status === 'fulfilled' ? results[0].value : [];
       const rail = results[1].status === 'fulfilled' ? results[1].value : [];

@@ -9,6 +9,7 @@ import RestaurantMarkersManager from './RestaurantMarkersManager';
 import CafeMarkersManager from './CafeMarkersManager';
 import HistoricPlacesManager from './HistoricPlacesManager';
 import ScenicViewpointsManager from './ScenicViewpointsManager';
+import FarmersMarketsManager from './FarmersMarketsManager';
 import { Restaurant } from '@/hooks/useRestaurants';
 import { Cafe } from '@/hooks/useCafes';
 
@@ -46,6 +47,7 @@ const Map = () => {
       />
       <HistoricPlacesManager map={map.current} />
       <ScenicViewpointsManager map={map.current} />
+      <FarmersMarketsManager map={map.current} />
       {selectedRestaurant && (
         <RestaurantPopup
           restaurant={selectedRestaurant}

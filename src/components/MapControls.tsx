@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMap } from './MapProvider';
-import { Settings, Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, Coffee, Eye } from 'lucide-react';
+import { Settings, Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, Coffee, Eye, ShoppingBasket } from 'lucide-react';
 
 const MapControls = () => {
   const { 
@@ -30,7 +30,9 @@ const MapControls = () => {
     showCafes,
     toggleCafes,
     showScenicViewpoints,
-    toggleScenicViewpoints
+    toggleScenicViewpoints,
+    showFarmersMarkets,
+    toggleFarmersMarkets
   } = useMap();
 
   const layerOptions = [
@@ -81,6 +83,14 @@ const MapControls = () => {
       color: 'bg-amber-600',
       checked: showCafes,
       toggle: toggleCafes
+    },
+    {
+      id: 'farmers-markets',
+      label: 'Farmer\'s Markets',
+      icon: ShoppingBasket,
+      color: 'bg-green-600',
+      checked: showFarmersMarkets,
+      toggle: toggleFarmersMarkets
     },
     {
       id: 'historic',

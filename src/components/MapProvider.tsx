@@ -24,6 +24,8 @@ interface MapContextType {
   toggleCafes: () => void;
   showScenicViewpoints: boolean;
   toggleScenicViewpoints: () => void;
+  showFarmersMarkets: boolean;
+  toggleFarmersMarkets: () => void;
 }
 
 const MapContext = createContext<MapContextType | undefined>(undefined);
@@ -52,6 +54,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
   const [showHistoricPlaces, setShowHistoricPlaces] = useState(false);
   const [showCafes, setShowCafes] = useState(false);
   const [showScenicViewpoints, setShowScenicViewpoints] = useState(false);
+  const [showFarmersMarkets, setShowFarmersMarkets] = useState(false);
 
   const addPoint = (point: [number, number]) => {
     setSelectedPoints(prev => {
@@ -129,6 +132,10 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
     setShowScenicViewpoints(prev => !prev);
   };
 
+  const toggleFarmersMarkets = () => {
+    setShowFarmersMarkets(prev => !prev);
+  };
+
   return (
     <MapContext.Provider value={{
       selectedPoints,
@@ -153,7 +160,9 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
       showCafes,
       toggleCafes,
       showScenicViewpoints,
-      toggleScenicViewpoints
+      toggleScenicViewpoints,
+      showFarmersMarkets,
+      toggleFarmersMarkets
     }}>
       {children}
     </MapContext.Provider>

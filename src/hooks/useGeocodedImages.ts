@@ -17,16 +17,22 @@ export const useGeocodedImages = (bounds?: ImageSearchParams['bounds']) => {
   }, []);
 
   useEffect(() => {
-    if (!bounds) return;
+    // Only fetch when bounds are provided (when Cityscape layer is visible)
+    if (!bounds) {
+      setImages([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
     const fetchImages = async () => {
       setLoading(true);
       setError(null);
-      // DON'T clear existing images - let them accumulate and be managed by the component
       
       try {
+        console.log('🖼️ Fetching images for Cityscape layer...');
         await imageDataService.fetchAllImagesProgressive(
-          { bounds, limit: 100 },
+          { bounds, limit: 200 }, // Fetch more to have options for selection
           handleProgressiveImages
         );
       } catch (err) {

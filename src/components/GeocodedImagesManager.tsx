@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { useGeocodedImages } from '@/hooks/useGeocodedImages';
@@ -18,9 +19,9 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
   const [lastFetchBounds, setLastFetchBounds] = useState<any>(null);
   const [displayedImages, setDisplayedImages] = useState<GeocodedImage[]>([]);
 
-  // Get current map bounds for image fetching
+  // Get current map bounds for image fetching - only when visible
   useEffect(() => {
-    if (!map) return;
+    if (!map || !visible) return;
 
     const updateBounds = () => {
       const bounds = map.getBounds();
@@ -31,15 +32,15 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
         west: bounds.getWest()
       };
       
-      // Only trigger fetch if bounds changed significantly (more than ~500m)
+      // Only trigger fetch if bounds changed significantly (more than ~500m) or first time
       if (!lastFetchBounds || shouldFetchNewImages(currentBounds, lastFetchBounds)) {
-        console.log('🗺️ Map bounds changed significantly, updating image fetch bounds');
+        console.log('🗺️ Cityscape layer active - fetching images for new bounds');
         setMapBounds(currentBounds);
         setLastFetchBounds(currentBounds);
       }
     };
 
-    // Update bounds initially and on map move with debouncing
+    // Update bounds initially when layer becomes visible
     updateBounds();
     
     let moveTimeout: NodeJS.Timeout;
@@ -49,12 +50,22 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
     };
     
     map.on('moveend', debouncedUpdate);
+    map.on('zoomend', debouncedUpdate);
 
     return () => {
       map.off('moveend', debouncedUpdate);
+      map.off('zoomend', debouncedUpdate);
       clearTimeout(moveTimeout);
     };
-  }, [map, lastFetchBounds]);
+  }, [map, visible, lastFetchBounds]);
+
+  // Clear bounds when layer becomes invisible to stop fetching
+  useEffect(() => {
+    if (!visible) {
+      setMapBounds(null);
+      setDisplayedImages([]);
+    }
+  }, [visible]);
 
   // Check if we should fetch new images based on bounds change
   const shouldFetchNewImages = (currentBounds: any, lastBounds: any): boolean => {
@@ -78,12 +89,12 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
     return latDiff > threshold || lngDiff > threshold;
   };
 
-  // Fetch images based on current map bounds - only when bounds change significantly
-  const { images, loading, error } = useGeocodedImages(mapBounds);
+  // Fetch images based on current map bounds - only when visible and bounds change
+  const { images, loading, error } = useGeocodedImages(visible ? mapBounds : null);
 
-  // Function to select up to 100 images with max 3 per city block
-  const selectDistributedImages = (allImages: GeocodedImage[], currentViewBounds: any, maxImages: number = 100): GeocodedImage[] => {
-    if (!currentViewBounds) return allImages.slice(0, maxImages);
+  // Function to select up to 100 non-overlapping images spread across the visible map
+  const selectNonOverlappingImages = (allImages: GeocodedImage[], currentViewBounds: any, maxImages: number = 100): GeocodedImage[] => {
+    if (!currentViewBounds || !map) return [];
     
     // Filter images to only those currently visible
     const visibleImages = allImages.filter(image => 
@@ -95,59 +106,51 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
 
     if (visibleImages.length === 0) return [];
 
-    // Create city block grid - approximately 100m x 100m blocks
-    const avgLat = (currentViewBounds.north + currentViewBounds.south) / 2;
-    const latDegreeDistance = 111000; // meters per degree latitude
-    const lngDegreeDistance = 111000 * Math.cos(avgLat * Math.PI / 180); // meters per degree longitude
-    
-    const blockSizeMeters = 100; // 100m city blocks
-    const latBlockSize = blockSizeMeters / latDegreeDistance;
-    const lngBlockSize = blockSizeMeters / lngDegreeDistance;
-
-    // Group images by city blocks
-    const cityBlocks: Map<string, GeocodedImage[]> = new Map();
-
-    visibleImages.forEach(image => {
-      const blockLat = Math.floor((image.latitude - currentViewBounds.south) / latBlockSize);
-      const blockLng = Math.floor((image.longitude - currentViewBounds.west) / lngBlockSize);
-      const blockKey = `${blockLat}_${blockLng}`;
-      
-      if (!cityBlocks.has(blockKey)) {
-        cityBlocks.set(blockKey, []);
+    // Sort by source diversity and quality
+    const sortedImages = visibleImages.sort((a, b) => {
+      const sourceOrder = { 'nasa': 0, 'mapillary': 1, 'flickr': 2 };
+      if (a.source !== b.source) {
+        return (sourceOrder[a.source] || 3) - (sourceOrder[b.source] || 3);
       }
-      cityBlocks.get(blockKey)!.push(image);
+      return a.id.localeCompare(b.id);
     });
 
-    // Select max 3 images per city block, prioritizing diversity
     const selectedImages: GeocodedImage[] = [];
-    const maxImagesPerBlock = 3;
+    const minDistancePixels = 80; // Minimum distance between images in pixels
 
-    for (const [blockKey, blockImages] of cityBlocks.entries()) {
+    for (const image of sortedImages) {
       if (selectedImages.length >= maxImages) break;
 
-      // Sort by source diversity first, then by some quality metric if available
-      const sortedBlockImages = blockImages.sort((a, b) => {
-        // Prioritize different sources for diversity
-        if (a.source !== b.source) {
-          const sourceOrder = { 'nasa': 0, 'mapillary': 1, 'flickr': 2 };
-          return (sourceOrder[a.source] || 3) - (sourceOrder[b.source] || 3);
+      // Convert lat/lng to pixel coordinates
+      const imagePoint = map.latLngToLayerPoint([image.latitude, image.longitude]);
+      
+      // Check if this image overlaps with any already selected images
+      let overlaps = false;
+      for (const selectedImage of selectedImages) {
+        const selectedPoint = map.latLngToLayerPoint([selectedImage.latitude, selectedImage.longitude]);
+        const distance = imagePoint.distanceTo(selectedPoint);
+        
+        if (distance < minDistancePixels) {
+          overlaps = true;
+          break;
         }
-        // Then by id for consistent ordering
-        return a.id.localeCompare(b.id);
-      });
+      }
 
-      // Take up to 3 images from this block
-      const imagesToAdd = sortedBlockImages.slice(0, Math.min(maxImagesPerBlock, maxImages - selectedImages.length));
-      selectedImages.push(...imagesToAdd);
+      if (!overlaps) {
+        selectedImages.push(image);
+      }
     }
 
-    console.log(`🏙️ Selected ${selectedImages.length} images across ${cityBlocks.size} city blocks (max 3 per block)`);
-    return selectedImages.slice(0, maxImages);
+    console.log(`🖼️ Selected ${selectedImages.length} non-overlapping images from ${visibleImages.length} visible images`);
+    return selectedImages;
   };
 
-  // Gradually update displayed images when new images arrive
+  // Update displayed images when new images arrive or map bounds change
   useEffect(() => {
-    if (!map) return;
+    if (!map || !visible) {
+      setDisplayedImages([]);
+      return;
+    }
 
     const currentViewBounds = map.getBounds();
     const currentBounds = {
@@ -157,31 +160,15 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
       west: currentViewBounds.getWest()
     };
 
-    // Select images for current view
-    const newSelectedImages = selectDistributedImages(images, currentBounds, 100);
+    // Select non-overlapping images for current view
+    const newSelectedImages = selectNonOverlappingImages(images, currentBounds, 100);
     
-    // Gradually transition to new image set
-    setDisplayedImages(prev => {
-      // Keep existing images that are still in the new selection
-      const existingImageIds = new Set(prev.map(img => img.id));
-      const newImageIds = new Set(newSelectedImages.map(img => img.id));
-      
-      // Images to keep (intersection)
-      const imagesToKeep = prev.filter(img => newImageIds.has(img.id));
-      
-      // New images to add
-      const imagesToAdd = newSelectedImages.filter(img => !existingImageIds.has(img.id));
-      
-      // Combine keeping priority to existing images, then add new ones up to limit
-      const combined = [...imagesToKeep, ...imagesToAdd].slice(0, 100);
-      
-      if (combined.length !== prev.length) {
-        console.log(`🖼️ Gradually updating images: ${imagesToKeep.length} kept, ${imagesToAdd.length} added, ${combined.length} total`);
-      }
-      
-      return combined;
-    });
-  }, [images, map]);
+    setDisplayedImages(newSelectedImages);
+
+    if (newSelectedImages.length > 0) {
+      console.log(`🖼️ Updated displayed images: ${newSelectedImages.length} images`);
+    }
+  }, [images, map, visible]);
 
   const createImageMarker = (image: GeocodedImage): L.Marker => {
     const sourceColors = {
@@ -238,14 +225,25 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
 
   // Update markers based on displayed images
   useEffect(() => {
-    if (!map || !visible) return;
+    if (!map) return;
 
     console.log('🖼️ Updating geocoded images layer...');
 
     // Create layer group if it doesn't exist
     if (!layerGroupRef.current) {
       layerGroupRef.current = L.layerGroup();
-      map.addLayer(layerGroupRef.current);
+      if (visible) {
+        map.addLayer(layerGroupRef.current);
+      }
+    }
+
+    // Clear all existing markers when not visible
+    if (!visible) {
+      if (layerGroupRef.current) {
+        layerGroupRef.current.clearLayers();
+        markersRef.current.clear();
+      }
+      return;
     }
 
     // Create a map of current displayed images
@@ -283,12 +281,6 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
     if (newMarkersCount > 0 || markersToRemove.length > 0) {
       console.log(`🖼️ Updated geocoded images: ${newMarkersCount} new, ${markersToRemove.length} removed, ${displayedImages.length} displayed`);
     }
-
-    return () => {
-      if (layerGroupRef.current && map && !visible) {
-        map.removeLayer(layerGroupRef.current);
-      }
-    };
   }, [map, visible, displayedImages]);
 
   // Handle visibility changes
@@ -302,11 +294,11 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
     }
   }, [map, visible]);
 
-  if (loading) {
+  if (loading && visible) {
     console.log('🖼️ Loading geocoded images...');
   }
 
-  if (error) {
+  if (error && visible) {
     console.error('🖼️ Error loading geocoded images:', error);
   }
 

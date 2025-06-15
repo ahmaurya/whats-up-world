@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Map from '@/components/Map';
 import Header from '@/components/Header';
@@ -18,9 +18,12 @@ interface City {
 const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [currentCity, setCurrentCity] = useState<string>('');
 
   const handleCitySelect = (city: City) => {
     console.log('City selected:', city);
+    setCurrentCity(city.name);
+    
     // The map will be updated through the MapProvider context
     // We'll trigger a custom event that the map can listen to
     const event = new CustomEvent('citySelected', { 
@@ -43,7 +46,7 @@ const Index = () => {
 
   return (
     <div className="h-screen w-full relative">
-      <Header onCitySelect={handleCitySelect} />
+      <Header onCitySelect={handleCitySelect} currentCity={currentCity} />
       
       {/* Adjust the main content to account for header height */}
       <div className="pt-16 h-full">

@@ -104,8 +104,11 @@ export const useFarmersMarkets = (bounds?: L.LatLngBounds | null, enabled: boole
           market.coordinates[0] !== 0 && market.coordinates[1] !== 0
         );
 
-      console.log(`🥕 Processed ${processedMarkets.length} farmer's markets`);
-      setFarmersMarkets(processedMarkets);
+      // Deduplicate markets
+      const deduplicatedMarkets = deduplicateMarkets(processedMarkets);
+
+      console.log(`🥕 Processed ${deduplicatedMarkets.length} farmer's markets (${processedMarkets.length - deduplicatedMarkets.length} duplicates removed)`);
+      setFarmersMarkets(deduplicatedMarkets);
 
     } catch (err) {
       console.error('🥕 Error fetching farmer\'s markets:', err);
@@ -129,6 +132,82 @@ export const useFarmersMarkets = (bounds?: L.LatLngBounds | null, enabled: boole
     error,
     fetchFarmersMarkets
   };
+};
+
+// Deduplication function
+const deduplicateMarkets = (markets: FarmersMarket[]): FarmersMarket[] => {
+  const PROXIMITY_THRESHOLD = 0.001; // ~100 meters in decimal degrees
+  const uniqueMarkets: FarmersMarket[] = [];
+  const processedIds = new Set<string>();
+
+  for (const market of markets) {
+    if (processedIds.has(market.id)) continue;
+
+    // Find nearby markets
+    const nearbyMarkets = markets.filter(other => {
+      if (other.id === market.id || processedIds.has(other.id)) return false;
+      
+      const distance = Math.sqrt(
+        Math.pow(market.coordinates[0] - other.coordinates[0], 2) +
+        Math.pow(market.coordinates[1] - other.coordinates[1], 2)
+      );
+      
+      return distance < PROXIMITY_THRESHOLD;
+    });
+
+    if (nearbyMarkets.length === 0) {
+      // No duplicates found
+      uniqueMarkets.push(market);
+      processedIds.add(market.id);
+    } else {
+      // Choose the best market from the group
+      const allMarkets = [market, ...nearbyMarkets];
+      const bestMarket = chooseBestMarket(allMarkets);
+      
+      uniqueMarkets.push(bestMarket);
+      
+      // Mark all markets in this group as processed
+      allMarkets.forEach(m => processedIds.add(m.id));
+    }
+  }
+
+  return uniqueMarkets;
+};
+
+// Choose the best market from a group of nearby markets
+const chooseBestMarket = (markets: FarmersMarket[]): FarmersMarket => {
+  const farmerMarketKeywords = ['farmer', 'market', 'marketplace', 'farmers'];
+  
+  // Score each market
+  const scoredMarkets = markets.map(market => {
+    let score = 0;
+    const nameAndDesc = `${market.name} ${market.description}`.toLowerCase();
+    
+    // Bonus for containing farmer/market keywords
+    const hasKeywords = farmerMarketKeywords.some(keyword => 
+      nameAndDesc.includes(keyword)
+    );
+    if (hasKeywords) score += 10;
+    
+    // Bonus for having more complete information
+    if (market.website) score += 2;
+    if (market.phone) score += 2;
+    if (market.schedule.length > 0) score += 3;
+    if (market.address !== 'Address not available') score += 1;
+    
+    // Slight bonus for longer, more descriptive names
+    score += Math.min(market.name.length / 10, 2);
+    
+    return { market, score };
+  });
+  
+  // Sort by score (highest first) and return the best one
+  scoredMarkets.sort((a, b) => b.score - a.score);
+  
+  console.log(`🥕 Choosing best market from ${markets.length} nearby markets:`, 
+    scoredMarkets.map(s => `${s.market.name} (score: ${s.score})`));
+  
+  return scoredMarkets[0].market;
 };
 
 // Helper function to parse opening hours

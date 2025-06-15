@@ -155,95 +155,106 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
     try {
       console.log(`♿ Fetching disabled parking spots near ${lat}, ${lng} within ${radius}m`);
 
-      // Expanded Overpass API query for disabled parking spots with more tag combinations
-      const overpassQuery = `
+      // Try different queries to see what works
+      const queries = [
+        // Query 1: Simple disabled parking query
+        `
         [out:json][timeout:25];
         (
-          // Primary disabled parking tags
           way["amenity"="parking"]["disabled"="yes"](around:${radius},${lat},${lng});
           way["amenity"="parking"]["disabled"="designated"](around:${radius},${lat},${lng});
-          way["amenity"="parking"]["disabled"="only"](around:${radius},${lat},${lng});
           node["amenity"="parking"]["disabled"="yes"](around:${radius},${lat},${lng});
           node["amenity"="parking"]["disabled"="designated"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["disabled"="only"](around:${radius},${lat},${lng});
-          
-          // Parking:disabled variations
-          way["amenity"="parking"]["parking:disabled"="yes"](around:${radius},${lat},${lng});
-          way["amenity"="parking"]["parking:disabled"="designated"](around:${radius},${lat},${lng});
-          way["amenity"="parking"]["parking:disabled"="only"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["parking:disabled"="yes"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["parking:disabled"="designated"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["parking:disabled"="only"](around:${radius},${lat},${lng});
-          
-          // Wheelchair accessible parking
+        );
+        out center;
+        `,
+        
+        // Query 2: Wheelchair accessible parking
+        `
+        [out:json][timeout:25];
+        (
           way["amenity"="parking"]["wheelchair"="yes"](around:${radius},${lat},${lng});
           way["amenity"="parking"]["wheelchair"="designated"](around:${radius},${lat},${lng});
           node["amenity"="parking"]["wheelchair"="yes"](around:${radius},${lat},${lng});
           node["amenity"="parking"]["wheelchair"="designated"](around:${radius},${lat},${lng});
-          
-          // Accessible parking variations
-          way["amenity"="parking"]["access"="disabled"](around:${radius},${lat},${lng});
-          way["amenity"="parking"]["access"="wheelchair"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["access"="disabled"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["access"="wheelchair"](around:${radius},${lat},${lng});
-          
-          // Capacity tags for disabled spots
-          way["amenity"="parking"]["capacity:disabled"][!"capacity:disabled"="0"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["capacity:disabled"][!"capacity:disabled"="0"](around:${radius},${lat},${lng});
-          
-          // Additional parking type variations
-          way["parking"="disabled"](around:${radius},${lat},${lng});
-          node["parking"="disabled"](around:${radius},${lat},${lng});
-          
-          // Handicap variations (US terminology)
-          way["amenity"="parking"]["handicap"="yes"](around:${radius},${lat},${lng});
-          way["amenity"="parking"]["handicap"="designated"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["handicap"="yes"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["handicap"="designated"](around:${radius},${lat},${lng});
         );
         out center;
-      `;
-
-      console.log(`♿ Enhanced Overpass query:`, overpassQuery);
-
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        body: overpassQuery,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log(`♿ Raw disabled parking API response:`, data);
-      console.log(`♿ Total elements returned: ${data.elements?.length || 0}`);
-
-      if (data.elements && data.elements.length > 0) {
-        console.log(`♿ First few elements:`, data.elements.slice(0, 5));
+        `,
         
-        // Log element types breakdown
-        const elementTypes = data.elements.reduce((acc: any, el: any) => {
-          acc[el.type] = (acc[el.type] || 0) + 1;
-          return acc;
-        }, {});
-        console.log(`♿ Element types breakdown:`, elementTypes);
+        // Query 3: General parking with capacity info
+        `
+        [out:json][timeout:25];
+        (
+          way["amenity"="parking"]["capacity:disabled"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["capacity:disabled"](around:${radius},${lat},${lng});
+        );
+        out center;
+        `,
+        
+        // Query 4: All parking spots (we'll filter for disabled ones)
+        `
+        [out:json][timeout:25];
+        (
+          way["amenity"="parking"](around:${radius},${lat},${lng});
+          node["amenity"="parking"](around:${radius},${lat},${lng});
+        );
+        out center;
+        `
+      ];
 
-        // Log elements with disabled-related tags
-        const elementsWithDisabledTags = data.elements.filter((el: any) => {
-          const tags = el.tags || {};
-          return tags.disabled || tags['parking:disabled'] || tags.parking === 'disabled' || 
-                 tags.wheelchair || tags.handicap || tags['capacity:disabled'] || tags.access;
-        });
-        console.log(`♿ Elements with disabled-related tags: ${elementsWithDisabledTags.length}`);
-        console.log(`♿ Sample disabled elements:`, elementsWithDisabledTags.slice(0, 3));
+      let allSpots: any[] = [];
+      
+      for (let i = 0; i < queries.length; i++) {
+        try {
+          console.log(`♿ Trying query ${i + 1}:`, queries[i]);
+          
+          const response = await fetch('https://overpass-api.de/api/interpreter', {
+            method: 'POST',
+            body: queries[i],
+          });
+
+          if (!response.ok) {
+            console.log(`♿ Query ${i + 1} failed with status: ${response.status}`);
+            continue;
+          }
+
+          const data = await response.json();
+          console.log(`♿ Query ${i + 1} returned ${data.elements?.length || 0} elements`);
+          
+          if (data.elements && data.elements.length > 0) {
+            console.log(`♿ Sample elements from query ${i + 1}:`, data.elements.slice(0, 3));
+            allSpots.push(...data.elements);
+          }
+          
+          // If we found results, break early for now
+          if (data.elements && data.elements.length > 0) {
+            break;
+          }
+        } catch (queryError) {
+          console.error(`♿ Query ${i + 1} error:`, queryError);
+        }
       }
 
-      const processedSpots: DisabledParkingSpot[] = data.elements
+      console.log(`♿ Total elements collected: ${allSpots.length}`);
+
+      const processedSpots: DisabledParkingSpot[] = allSpots
+        .filter((element: any) => {
+          const tags = element.tags || {};
+          console.log(`♿ Checking element ${element.id} with tags:`, tags);
+          
+          // Filter for disabled/wheelchair accessible parking
+          return tags.disabled === 'yes' || 
+                 tags.disabled === 'designated' ||
+                 tags['parking:disabled'] === 'yes' ||
+                 tags['parking:disabled'] === 'designated' ||
+                 tags.wheelchair === 'yes' ||
+                 tags.wheelchair === 'designated' ||
+                 tags['capacity:disabled'] ||
+                 tags.handicap === 'yes' ||
+                 tags.handicap === 'designated';
+        })
         .map((element: any) => {
           const tags = element.tags || {};
-          
-          console.log(`♿ Processing element ${element.id}:`, { type: element.type, tags });
           
           // Get coordinates
           let coordinates: [number, number];

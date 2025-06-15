@@ -119,12 +119,16 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
         { icon: createHistoricPlaceIcon() }
       );
 
+      // Check if location and date have meaningful values
+      const hasValidLocation = place.county !== 'Unknown County' && place.state !== 'Unknown State';
+      const hasValidDate = place.date_listed !== 'Unknown Date';
+
       const popupContent = `
         <div style="max-width: 250px;">
           <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">${place.name}</h3>
           <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Type:</strong> ${place.resource_type}</p>
-          <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Location:</strong> ${place.county}, ${place.state}</p>
-          <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Date Listed:</strong> ${place.date_listed}</p>
+          ${hasValidLocation ? `<p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Location:</strong> ${place.county}, ${place.state}</p>` : ''}
+          ${hasValidDate ? `<p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Date Listed:</strong> ${place.date_listed}</p>` : ''}
           ${place.nris_reference ? `<p style="margin: 0; font-size: 12px;"><strong>NRIS Ref:</strong> ${place.nris_reference}</p>` : ''}
         </div>
       `;

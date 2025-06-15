@@ -155,25 +155,56 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
     try {
       console.log(`♿ Fetching disabled parking spots near ${lat}, ${lng} within ${radius}m`);
 
-      // Overpass API query for disabled parking spots
+      // Expanded Overpass API query for disabled parking spots with more tag combinations
       const overpassQuery = `
         [out:json][timeout:25];
         (
+          // Primary disabled parking tags
           way["amenity"="parking"]["disabled"="yes"](around:${radius},${lat},${lng});
           way["amenity"="parking"]["disabled"="designated"](around:${radius},${lat},${lng});
-          way["parking"="disabled"](around:${radius},${lat},${lng});
-          way["parking:disabled"="yes"](around:${radius},${lat},${lng});
-          way["parking:disabled"="designated"](around:${radius},${lat},${lng});
+          way["amenity"="parking"]["disabled"="only"](around:${radius},${lat},${lng});
           node["amenity"="parking"]["disabled"="yes"](around:${radius},${lat},${lng});
           node["amenity"="parking"]["disabled"="designated"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["disabled"="only"](around:${radius},${lat},${lng});
+          
+          // Parking:disabled variations
+          way["amenity"="parking"]["parking:disabled"="yes"](around:${radius},${lat},${lng});
+          way["amenity"="parking"]["parking:disabled"="designated"](around:${radius},${lat},${lng});
+          way["amenity"="parking"]["parking:disabled"="only"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["parking:disabled"="yes"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["parking:disabled"="designated"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["parking:disabled"="only"](around:${radius},${lat},${lng});
+          
+          // Wheelchair accessible parking
+          way["amenity"="parking"]["wheelchair"="yes"](around:${radius},${lat},${lng});
+          way["amenity"="parking"]["wheelchair"="designated"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["wheelchair"="yes"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["wheelchair"="designated"](around:${radius},${lat},${lng});
+          
+          // Accessible parking variations
+          way["amenity"="parking"]["access"="disabled"](around:${radius},${lat},${lng});
+          way["amenity"="parking"]["access"="wheelchair"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["access"="disabled"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["access"="wheelchair"](around:${radius},${lat},${lng});
+          
+          // Capacity tags for disabled spots
+          way["amenity"="parking"]["capacity:disabled"][!"capacity:disabled"="0"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["capacity:disabled"][!"capacity:disabled"="0"](around:${radius},${lat},${lng});
+          
+          // Additional parking type variations
+          way["parking"="disabled"](around:${radius},${lat},${lng});
           node["parking"="disabled"](around:${radius},${lat},${lng});
-          node["parking:disabled"="yes"](around:${radius},${lat},${lng});
-          node["parking:disabled"="designated"](around:${radius},${lat},${lng});
+          
+          // Handicap variations (US terminology)
+          way["amenity"="parking"]["handicap"="yes"](around:${radius},${lat},${lng});
+          way["amenity"="parking"]["handicap"="designated"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["handicap"="yes"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["handicap"="designated"](around:${radius},${lat},${lng});
         );
         out center;
       `;
 
-      console.log(`♿ Overpass query:`, overpassQuery);
+      console.log(`♿ Enhanced Overpass query:`, overpassQuery);
 
       const response = await fetch('https://overpass-api.de/api/interpreter', {
         method: 'POST',
@@ -198,10 +229,11 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
         }, {});
         console.log(`♿ Element types breakdown:`, elementTypes);
 
-        // Log elements with disabled tags
+        // Log elements with disabled-related tags
         const elementsWithDisabledTags = data.elements.filter((el: any) => {
           const tags = el.tags || {};
-          return tags.disabled || tags['parking:disabled'] || tags.parking === 'disabled';
+          return tags.disabled || tags['parking:disabled'] || tags.parking === 'disabled' || 
+                 tags.wheelchair || tags.handicap || tags['capacity:disabled'] || tags.access;
         });
         console.log(`♿ Elements with disabled-related tags: ${elementsWithDisabledTags.length}`);
         console.log(`♿ Sample disabled elements:`, elementsWithDisabledTags.slice(0, 3));
@@ -232,7 +264,7 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
             timeLimit: tags.maxstay || tags['parking:time_limit'],
             restrictions: tags.restriction || tags['parking:restriction'],
             surface: tags.surface,
-            capacity: tags.capacity ? parseInt(tags.capacity) : undefined,
+            capacity: tags.capacity ? parseInt(tags.capacity) : (tags['capacity:disabled'] ? parseInt(tags['capacity:disabled']) : undefined),
             source: 'openstreetmap' as const
           };
 

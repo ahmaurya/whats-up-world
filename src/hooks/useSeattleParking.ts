@@ -28,8 +28,8 @@ export const useSeattleDisabledParking = () => {
         // Query 3: Street parking with accessibility info
         `https://data.seattle.gov/resource/926b-jbpn.json?$where=within_box(location,${bbox.south},${bbox.west},${bbox.north},${bbox.east})&$limit=1000`,
 
-        // Query 4: Seattle City GIS - Curb Space Categories (DISABL spaces)
-        `https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Curb_Space_Categories/FeatureServer/0/query?where=SPACETYPE='DISABL'&geometry=${bbox.west},${bbox.south},${bbox.east},${bbox.north}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=true&f=json`
+        // Query 4: Seattle City GIS - Curb Space Categories (DISABL spaces) - FIXED ENDPOINT
+        `https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Curb_Space_Categories/FeatureServer/6/query?where=SPACETYPE='DISABL'&geometry=${bbox.west},${bbox.south},${bbox.east},${bbox.north}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=true&outSR=4326&f=json`
       ];
 
       let allSpots: any[] = [];
@@ -37,6 +37,7 @@ export const useSeattleDisabledParking = () => {
       for (let i = 0; i < queries.length; i++) {
         try {
           console.log(`🏙️ Trying Seattle API query ${i + 1} of ${queries.length}`);
+          console.log(`🏙️ Query URL: ${queries[i]}`);
           
           const response = await fetch(queries[i]);
           
@@ -46,6 +47,7 @@ export const useSeattleDisabledParking = () => {
           }
 
           const data = await response.json();
+          console.log(`🏙️ Raw response from query ${i + 1}:`, data);
           
           if (i === 3) {
             // Handle ArcGIS response format for curb space data
@@ -56,6 +58,8 @@ export const useSeattleDisabledParking = () => {
                 ...feature.attributes,
                 geometry: feature.geometry
               })));
+            } else {
+              console.log(`🏙️ No features returned from GIS query. Response structure:`, Object.keys(data));
             }
           } else {
             // Handle SODA API response format
@@ -103,6 +107,23 @@ export const useSeattleDisabledParking = () => {
             } else {
               coordinates = [lng, lat]; // fallback
             }
+          } else if (item.geometry && item.geometry.rings) {
+            // ArcGIS geometry format (polygon) - use center of first ring
+            const firstRing = item.geometry.rings[0];
+            if (firstRing && firstRing.length > 0) {
+              // Calculate centroid of polygon
+              let sumX = 0, sumY = 0;
+              for (const point of firstRing) {
+                sumX += point[0];
+                sumY += point[1];
+              }
+              coordinates = [sumX / firstRing.length, sumY / firstRing.length];
+            } else {
+              coordinates = [lng, lat]; // fallback
+            }
+          } else if (item.geometry && item.geometry.x && item.geometry.y) {
+            // ArcGIS geometry format (point)
+            coordinates = [item.geometry.x, item.geometry.y];
           } else if (item.location?.coordinates) {
             coordinates = [item.location.coordinates[0], item.location.coordinates[1]];
           } else if (item.location?.longitude && item.location?.latitude) {

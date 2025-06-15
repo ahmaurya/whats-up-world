@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface MapContextType {
@@ -62,7 +63,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
   const [showScenicViewpoints, setShowScenicViewpoints] = useState(false);
   const [showFarmersMarkets, setShowFarmersMarkets] = useState(false);
   const [showParking, setShowParking] = useState(false);
-  const [showDisabledParking, setShowDisabledParking] = useState(false);
+  const [showDisabledParking, setShowDisabledParking] = useState(true);
   const [showGeocodedImages, setShowGeocodedImages] = useState(false);
 
   const addPoint = (point: [number, number]) => {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { supabase } from '@/integrations/supabase/client';
@@ -125,16 +126,14 @@ export const useLiveTransitData = (map: L.Map | null) => {
       console.log('📡 Calling Supabase function for KCM data...');
       
       const { data, error } = await supabase.functions.invoke('get-live-transit', {
-        body: JSON.stringify({ agency: 'kcm' }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        body: { agency: 'kcm' }
       });
 
       console.log(`📡 KCM Supabase Response:`, { 
         hasData: !!data, 
         hasError: !!error,
-        error: error
+        error: error,
+        data: data
       });
       
       if (error) {
@@ -167,16 +166,14 @@ export const useLiveTransitData = (map: L.Map | null) => {
       console.log('📡 Calling Supabase function for Sound Transit data...');
       
       const { data, error } = await supabase.functions.invoke('get-live-transit', {
-        body: JSON.stringify({ agency: 'st' }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        body: { agency: 'st' }
       });
 
       console.log(`📡 Sound Transit Supabase Response:`, { 
         hasData: !!data, 
         hasError: !!error,
-        error: error
+        error: error,
+        data: data
       });
       
       if (error) {

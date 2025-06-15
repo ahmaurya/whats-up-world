@@ -1,4 +1,3 @@
-
 interface UnsplashImage {
   id: string;
   urls: {
@@ -15,16 +14,10 @@ interface UnsplashResponse {
   total: number;
 }
 
-const UNSPLASH_ACCESS_KEY = 'YOUR_UNSPLASH_ACCESS_KEY'; // This should be set in environment or config
+const UNSPLASH_ACCESS_KEY = 'q-f9Tu0FXaoZIz8ykFkP_NBISNztfmo7dE-FmmRQ6kQ';
 
 export const searchUnsplashImages = async (query: string): Promise<string | null> => {
   try {
-    // For now, return null if no access key is configured
-    if (!UNSPLASH_ACCESS_KEY || UNSPLASH_ACCESS_KEY === 'YOUR_UNSPLASH_ACCESS_KEY') {
-      console.log('🖼️ Unsplash API key not configured, skipping image search');
-      return null;
-    }
-
     const searchQuery = encodeURIComponent(query);
     const response = await fetch(
       `https://api.unsplash.com/search/photos?query=${searchQuery}&per_page=1&orientation=landscape&content_filter=high`,

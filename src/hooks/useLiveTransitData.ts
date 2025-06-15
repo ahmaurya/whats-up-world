@@ -57,6 +57,67 @@ export const useLiveTransitData = (map: L.Map | null) => {
     }
   };
 
+  // Parse OneBusAway JSON data
+  const parseOneBusAwayData = (jsonData: any, vehicleType: 'bus' | 'rail' | 'tram', operator: string): LiveVehicle[] => {
+    try {
+      console.log(`🔍 Starting to parse OneBusAway data for ${vehicleType} from ${operator}`);
+      console.log(`📦 JSON response:`, jsonData);
+      
+      if (!jsonData.data || !jsonData.data.list) {
+        console.log('⚠️ No vehicle list found in OneBusAway response');
+        return [];
+      }
+
+      const vehicles: LiveVehicle[] = [];
+      const vehicleList = jsonData.data.list;
+
+      console.log(`📊 Found ${vehicleList.length} vehicles in OneBusAway response`);
+
+      vehicleList.forEach((vehicle: any, index: number) => {
+        console.log(`🚌 Processing OneBusAway vehicle ${index + 1}/${vehicleList.length}:`, {
+          vehicleId: vehicle.vehicleId,
+          tripId: vehicle.tripId,
+          routeId: vehicle.routeId,
+          location: vehicle.location,
+          lastUpdateTime: vehicle.lastUpdateTime
+        });
+
+        if (vehicle.location && vehicle.location.lat && vehicle.location.lon) {
+          const liveVehicle: LiveVehicle = {
+            id: vehicle.vehicleId || `oba-${index}`,
+            routeId: vehicle.routeId || 'unknown',
+            routeName: vehicle.routeId || 'Unknown Route',
+            latitude: vehicle.location.lat,
+            longitude: vehicle.location.lon,
+            bearing: vehicle.location.heading,
+            speed: vehicle.location.speed ? vehicle.location.speed * 2.237 : undefined, // Convert m/s to mph if available
+            timestamp: vehicle.lastUpdateTime || Date.now(),
+            vehicleType,
+            operator,
+            occupancyStatus: undefined, // OneBusAway doesn't typically include occupancy
+            routeProgress: vehicle.tripStatus?.distanceAlongTrip ? 
+              vehicle.tripStatus.distanceAlongTrip / (vehicle.tripStatus.totalDistanceAlongTrip || 1) : 0.5
+          };
+
+          vehicles.push(liveVehicle);
+          console.log(`✅ Added OneBusAway vehicle ${vehicle.vehicleId} to collection`);
+        } else {
+          console.log(`⚠️ Skipping OneBusAway vehicle ${vehicle.vehicleId} - missing location data`);
+        }
+      });
+
+      console.log(`✅ Successfully parsed ${vehicles.length} valid vehicles for ${vehicleType} from ${operator}`);
+      if (vehicles.length > 0) {
+        console.log(`📋 Sample OneBusAway vehicle data:`, vehicles[0]);
+      }
+      return vehicles;
+    } catch (error) {
+      console.error(`❌ Error parsing OneBusAway data for ${vehicleType}:`, error);
+      console.error('❌ Error stack:', error.stack);
+      throw error;
+    }
+  };
+
   // Parse GTFS-RT protobuf data
   const parseGTFSRealtime = async (arrayBuffer: ArrayBuffer, vehicleType: 'bus' | 'rail' | 'tram', operator: string): Promise<LiveVehicle[]> => {
     try {
@@ -68,43 +129,13 @@ export const useLiveTransitData = (map: L.Map | null) => {
       
       const feed = gtfsRealtime.transit_realtime.FeedMessage.decode(new Uint8Array(arrayBuffer));
       console.log(`📊 Decoded feed with ${feed.entity.length} entities`);
-      console.log('📋 Feed header:', feed.header);
       
       const vehicles: LiveVehicle[] = [];
 
       feed.entity.forEach((entity, index) => {
-        console.log(`🚌 Processing entity ${index + 1}/${feed.entity.length}:`, {
-          id: entity.id,
-          hasVehicle: !!entity.vehicle,
-          hasTripUpdate: !!entity.tripUpdate,
-          hasAlert: !!entity.alert
-        });
-        
         if (entity.vehicle) {
           const vehicle = entity.vehicle;
           const position = vehicle.position;
-          
-          console.log(`📍 Vehicle ${entity.id} details:`, {
-            hasPosition: !!position,
-            latitude: position?.latitude,
-            longitude: position?.longitude,
-            bearing: position?.bearing,
-            speed: position?.speed,
-            trip: vehicle.trip ? {
-              tripId: vehicle.trip.tripId,
-              routeId: vehicle.trip.routeId,
-              startTime: vehicle.trip.startTime,
-              startDate: vehicle.trip.startDate
-            } : null,
-            timestamp: vehicle.timestamp,
-            occupancyStatus: vehicle.occupancyStatus,
-            occupancyStatusType: typeof vehicle.occupancyStatus,
-            vehicleDescriptor: vehicle.vehicle ? {
-              id: vehicle.vehicle.id,
-              label: vehicle.vehicle.label,
-              licensePlate: vehicle.vehicle.licensePlate
-            } : null
-          });
           
           if (position && position.latitude && position.longitude) {
             const speed = position.speed ? position.speed * 2.237 : undefined; // Convert m/s to mph
@@ -121,26 +152,18 @@ export const useLiveTransitData = (map: L.Map | null) => {
               vehicleType,
               operator,
               occupancyStatus: vehicle.occupancyStatus as any,
-              routeProgress: 0.5 // Default value, could be calculated based on trip progress
+              routeProgress: 0.5
             };
             
             vehicles.push(liveVehicle);
-            console.log(`✅ Added vehicle ${entity.id} to collection`);
-          } else {
-            console.log(`⚠️ Skipping vehicle ${entity.id} - missing position data`);
           }
         }
       });
 
       console.log(`✅ Successfully parsed ${vehicles.length} valid vehicles for ${vehicleType} from ${operator}`);
-      if (vehicles.length > 0) {
-        console.log(`📋 Sample vehicle data:`, vehicles[0]);
-        console.log(`📋 ALL VEHICLES for ${vehicleType}:`, vehicles);
-      }
       return vehicles;
     } catch (error) {
       console.error(`❌ Error parsing GTFS-RT data for ${vehicleType}:`, error);
-      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   };
@@ -162,7 +185,6 @@ export const useLiveTransitData = (map: L.Map | null) => {
       console.log(`📡 KCM Supabase Response:`, { 
         hasData: !!data, 
         hasError: !!error,
-        data: data,
         error: error
       });
       
@@ -171,26 +193,12 @@ export const useLiveTransitData = (map: L.Map | null) => {
         throw new Error(`Supabase function error: ${error.message || JSON.stringify(error)}`);
       }
 
-      if (!data) {
-        console.error(`❌ No data received from KCM function`);
-        throw new Error('No data received from KCM function');
-      }
-
-      console.log('📦 Complete KCM response data:', data);
-
-      // Check if there's an error in the response
-      if (!data.success || data.error) {
+      if (!data || !data.success) {
         console.error(`❌ KCM function returned error:`, data);
-        throw new Error(`Function Error: ${data.error || 'Unknown error'} - ${data.message || data.details || ''}`);
-      }
-
-      if (!data.data) {
-        console.error(`❌ Invalid KCM response format - missing data:`, data);
-        throw new Error(`Invalid response format from KCM function - no data field`);
+        throw new Error(`Function Error: ${data?.error || 'Unknown error'}`);
       }
 
       // Convert base64 back to ArrayBuffer
-      console.log(`🔄 Converting base64 data (length: ${data.data.length}) back to ArrayBuffer...`);
       const binaryString = atob(data.data);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
@@ -198,90 +206,60 @@ export const useLiveTransitData = (map: L.Map | null) => {
       }
       const arrayBuffer = bytes.buffer;
       
-      console.log(`📦 Converted to ArrayBuffer of ${arrayBuffer.byteLength} bytes`);
-      
       const vehicles = await parseGTFSRealtime(arrayBuffer, 'bus', 'King County Metro');
       console.log(`🚌 KCM FINAL RESULT: ${vehicles.length} buses fetched`);
-      console.log(`🚌 KCM ALL VEHICLES DUMP:`, vehicles);
       
       return vehicles;
     } catch (error) {
       console.error('❌ Error in fetchKingCountyMetroBuses:', error);
-      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   };
 
-  // Fetch Sound Transit light rail positions using Supabase Edge Function
-  const fetchSoundTransitRail = async (): Promise<LiveVehicle[]> => {
-    console.log('🚊 Starting Sound Transit rail data fetch...');
+  // Fetch OneBusAway transit data using Supabase Edge Function
+  const fetchOneBusAwayTransit = async (): Promise<LiveVehicle[]> => {
+    console.log('🚊 Starting OneBusAway transit data fetch...');
     
     try {
-      console.log('📡 Calling Supabase function for ST data...');
+      console.log('📡 Calling Supabase function for OneBusAway data...');
       
       const { data, error } = await supabase.functions.invoke('get-live-transit', {
-        body: JSON.stringify({ agency: 'st' }),
+        body: JSON.stringify({ agency: 'oba' }),
         headers: {
           'Content-Type': 'application/json'
         }
       });
 
-      console.log(`📡 ST Supabase Response:`, { 
+      console.log(`📡 OneBusAway Supabase Response:`, { 
         hasData: !!data, 
         hasError: !!error,
-        data: data,
         error: error
       });
       
       if (error) {
-        console.error(`❌ ST Supabase function error:`, error);
+        console.error(`❌ OneBusAway Supabase function error:`, error);
         throw new Error(`Supabase function error: ${error.message || JSON.stringify(error)}`);
       }
 
-      if (!data) {
-        console.error(`❌ No data received from ST function`);
-        throw new Error('No data received from ST function');
+      if (!data || !data.success) {
+        console.error(`❌ OneBusAway function returned error:`, data);
+        throw new Error(`Function Error: ${data?.error || 'Unknown error'}`);
       }
 
-      console.log('📦 Complete ST response data:', data);
-
-      // Check if there's an error in the response
-      if (!data.success || data.error) {
-        console.error(`❌ ST function returned error:`, data);
-        throw new Error(`Function Error: ${data.error || 'Unknown error'} - ${data.message || data.details || ''}`);
-      }
-
-      if (!data.data) {
-        console.error(`❌ Invalid ST response format - missing data:`, data);
-        throw new Error(`Invalid response format from ST function - no data field`);
-      }
-
-      // Convert base64 back to ArrayBuffer
-      console.log(`🔄 Converting base64 data (length: ${data.data.length}) back to ArrayBuffer...`);
-      const binaryString = atob(data.data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const arrayBuffer = bytes.buffer;
-      
-      console.log(`📦 Converted to ArrayBuffer of ${arrayBuffer.byteLength} bytes`);
-      
-      const vehicles = await parseGTFSRealtime(arrayBuffer, 'rail', 'Sound Transit');
-      console.log(`🚊 ST FINAL RESULT: ${vehicles.length} trains fetched`);
-      console.log(`🚊 ST ALL VEHICLES DUMP:`, vehicles);
+      // Parse JSON response from OneBusAway
+      const jsonData = JSON.parse(data.data);
+      const vehicles = parseOneBusAwayData(jsonData, 'bus', 'OneBusAway (Puget Sound)');
+      console.log(`🚊 OneBusAway FINAL RESULT: ${vehicles.length} vehicles fetched`);
       
       return vehicles;
     } catch (error) {
-      console.error('❌ Error in fetchSoundTransitRail:', error);
-      console.error('❌ Error stack:', error.stack);
+      console.error('❌ Error in fetchOneBusAwayTransit:', error);
       throw error;
     }
   };
 
   // Fetch Seattle Streetcar positions
   const fetchSeattleStreetcars = async (): Promise<LiveVehicle[]> => {
-    // Seattle Streetcar doesn't have a public real-time API
     console.log('🚋 Seattle Streetcar does not have a public real-time API available');
     return [];
   };
@@ -298,24 +276,30 @@ export const useLiveTransitData = (map: L.Map | null) => {
     setError(null);
     
     try {
-      console.log('🚌 Fetching live transit data for Seattle via Supabase...');
+      console.log('🚌 Fetching live transit data via Supabase...');
       
       const results = await Promise.allSettled([
         fetchKingCountyMetroBuses(),
-        fetchSoundTransitRail(),
+        fetchOneBusAwayTransit(),
         fetchSeattleStreetcars()
       ]);
       
       console.log('📊 All API calls completed. Processing results...');
-      console.log('📊 Raw Promise.allSettled results:', results);
       
       const buses = results[0].status === 'fulfilled' ? results[0].value : [];
-      const rail = results[1].status === 'fulfilled' ? results[1].value : [];
+      const transitVehicles = results[1].status === 'fulfilled' ? results[1].value : [];
       const trams = results[2].status === 'fulfilled' ? results[2].value : [];
+      
+      // Separate OneBusAway vehicles by type (buses vs rail)
+      const oneBusAwayBuses = transitVehicles.filter(v => v.vehicleType === 'bus');
+      const oneBusAwayRail = transitVehicles.filter(v => v.vehicleType === 'rail');
+      
+      // Combine buses from different sources
+      const allBuses = [...buses, ...oneBusAwayBuses];
       
       // Log any errors
       results.forEach((result, index) => {
-        const types = ['buses', 'rail', 'trams'];
+        const types = ['KCM buses', 'OneBusAway transit', 'trams'];
         if (result.status === 'rejected') {
           console.error(`❌ Failed to fetch ${types[index]}:`, result.reason);
         } else {
@@ -324,34 +308,20 @@ export const useLiveTransitData = (map: L.Map | null) => {
       });
       
       console.log(`📊 Final live transit data summary:`, {
-        buses: buses.length,
-        rail: rail.length,
+        buses: allBuses.length,
+        rail: oneBusAwayRail.length,
         trams: trams.length,
-        totalVehicles: buses.length + rail.length + trams.length
+        totalVehicles: allBuses.length + oneBusAwayRail.length + trams.length
       });
       
-      // Log detailed sample data
-      if (buses.length > 0) {
-        console.log(`🚌 Sample bus data (first 3):`, buses.slice(0, 3));
-      }
-      if (rail.length > 0) {
-        console.log(`🚊 Sample rail data (first 3):`, rail.slice(0, 3));
-      }
-      
-      console.log('📊 COMPLETE LIVE TRANSIT DATA DUMP:');
-      console.log('🚌 ALL BUSES:', buses);
-      console.log('🚊 ALL RAIL:', rail);
-      console.log('🚋 ALL TRAMS:', trams);
-      
       setLiveData({
-        buses,
-        rail,
+        buses: allBuses,
+        rail: oneBusAwayRail,
         trams,
         lastUpdated: Date.now()
       });
     } catch (err) {
       console.error('❌ Error fetching live transit data:', err);
-      console.error('❌ Error stack:', err.stack);
       setError('Failed to fetch live transit data');
       setLiveData({
         buses: [],

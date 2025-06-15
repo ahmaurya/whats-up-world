@@ -43,7 +43,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: 'Missing agency parameter', 
-          message: 'Use agency=kcm or agency=st in request body or URL params',
+          message: 'Use agency=kcm, agency=st, or agency=oba in request body or URL params',
           timestamp: new Date().toISOString()
         }),
         { 
@@ -55,23 +55,28 @@ serve(async (req) => {
 
     let apiUrl: string
     let agencyName: string
+    let apiType: 'gtfs-rt' | 'onebusaway' = 'gtfs-rt'
 
     switch (agency.toLowerCase()) {
       case 'kcm':
         apiUrl = 'https://s3.amazonaws.com/kcm-alerts-realtime-prod/vehiclepositions.pb'
         agencyName = 'King County Metro'
+        apiType = 'gtfs-rt'
         break
       case 'st':
-        apiUrl = 'https://www.soundtransit.org/GTFS-rt/VehiclePositions.pb'
-        agencyName = 'Sound Transit'
+      case 'oba':
+        // Use OneBusAway API for both Sound Transit and general transit data
+        apiUrl = 'http://api.pugetsound.onebusaway.org/api/where/vehicles-for-agency/40.json?key=TEST'
+        agencyName = 'OneBusAway (Puget Sound)'
+        apiType = 'onebusaway'
         break
       default:
         console.error(`❌ Invalid agency parameter: ${agency}`)
         return new Response(
           JSON.stringify({ 
             error: `Invalid agency parameter: ${agency}`, 
-            message: `Use 'kcm' or 'st', received: '${agency}'`,
-            validAgencies: ['kcm', 'st'],
+            message: `Use 'kcm', 'st', or 'oba', received: '${agency}'`,
+            validAgencies: ['kcm', 'st', 'oba'],
             timestamp: new Date().toISOString()
           }),
           { 
@@ -88,12 +93,20 @@ serve(async (req) => {
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
     try {
+      const headers: Record<string, string> = {
+        'User-Agent': 'Seattle-Transit-Map/1.0'
+      };
+
+      // Set appropriate Accept header based on API type
+      if (apiType === 'gtfs-rt') {
+        headers['Accept'] = 'application/x-protobuf';
+      } else {
+        headers['Accept'] = 'application/json';
+      }
+
       const response = await fetch(apiUrl, {
         method: 'GET',
-        headers: {
-          'Accept': 'application/x-protobuf',
-          'User-Agent': 'Seattle-Transit-Map/1.0'
-        },
+        headers,
         signal: controller.signal
       });
 
@@ -131,28 +144,48 @@ serve(async (req) => {
         )
       }
 
-      const arrayBuffer = await response.arrayBuffer()
-      console.log(`✅ Successfully received ${arrayBuffer.byteLength} bytes from ${agencyName}`)
+      let responseData: string;
+      let dataSize: number;
 
-      // Convert ArrayBuffer to base64 for JSON transmission
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const base64String = btoa(String.fromCharCode(...uint8Array));
+      if (apiType === 'onebusaway') {
+        // Handle JSON response from OneBusAway
+        const jsonData = await response.json();
+        console.log(`✅ Successfully received OneBusAway JSON data:`, {
+          code: jsonData.code,
+          version: jsonData.version,
+          vehicleCount: jsonData.data?.list?.length || 0
+        });
+
+        // Convert JSON to string for consistent handling
+        responseData = JSON.stringify(jsonData);
+        dataSize = responseData.length;
+      } else {
+        // Handle protobuf response from GTFS-RT
+        const arrayBuffer = await response.arrayBuffer()
+        console.log(`✅ Successfully received ${arrayBuffer.byteLength} bytes from ${agencyName}`)
+
+        // Convert ArrayBuffer to base64 for JSON transmission
+        const uint8Array = new Uint8Array(arrayBuffer);
+        responseData = btoa(String.fromCharCode(...uint8Array));
+        dataSize = arrayBuffer.byteLength;
+      }
       
-      console.log(`📦 Converted to base64 string of length: ${base64String.length}`);
+      console.log(`📦 Converted to response data of size: ${dataSize}`);
 
       const successResponse = {
         success: true,
         agency: agencyName,
         agencyCode: agency.toLowerCase(),
-        dataSize: arrayBuffer.byteLength,
-        data: base64String,
+        dataSize: dataSize,
+        data: responseData,
+        apiType: apiType,
         timestamp: new Date().toISOString(),
         fetchedFrom: apiUrl
       };
 
       console.log(`🎉 Returning success response for ${agencyName}:`, {
         ...successResponse,
-        data: `[base64 data of ${base64String.length} chars]` // Don't log the full data
+        data: `[${apiType} data of ${dataSize} ${apiType === 'onebusaway' ? 'chars' : 'bytes'}]` // Don't log the full data
       });
 
       return new Response(JSON.stringify(successResponse), {

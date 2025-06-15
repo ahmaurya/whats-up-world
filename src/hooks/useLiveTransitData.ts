@@ -24,33 +24,33 @@ export interface LiveTransitData {
   lastUpdated: number;
 }
 
-// Define realistic transit routes in Seattle
+// Define realistic transit routes in Seattle with proper typing
 const SEATTLE_BUS_ROUTES = [
   {
     id: '1',
     name: 'Route 1',
     path: [
-      [47.6097, -122.3331], // Downtown Seattle
-      [47.6205, -122.3493], // Queen Anne
-      [47.6380, -122.3493], // Fremont
+      [47.6097, -122.3331] as [number, number], // Downtown Seattle
+      [47.6205, -122.3493] as [number, number], // Queen Anne
+      [47.6380, -122.3493] as [number, number], // Fremont
     ]
   },
   {
     id: '40',
     name: 'Route 40',
     path: [
-      [47.6062, -122.3321], // Pioneer Square
-      [47.6205, -122.3331], // Capitol Hill
-      [47.6298, -122.3284], // UW
+      [47.6062, -122.3321] as [number, number], // Pioneer Square
+      [47.6205, -122.3331] as [number, number], // Capitol Hill
+      [47.6298, -122.3284] as [number, number], // UW
     ]
   },
   {
     id: '62',
     name: 'Route 62',
     path: [
-      [47.6097, -122.3331], // Downtown
-      [47.6205, -122.3493], // Queen Anne
-      [47.6553, -122.3035], // Green Lake
+      [47.6097, -122.3331] as [number, number], // Downtown
+      [47.6205, -122.3493] as [number, number], // Queen Anne
+      [47.6553, -122.3035] as [number, number], // Green Lake
     ]
   }
 ];
@@ -60,23 +60,23 @@ const SEATTLE_LIGHT_RAIL_ROUTES = [
     id: '1-line',
     name: '1 Line',
     path: [
-      [47.4502, -122.3088], // SeaTac Airport
-      [47.4781, -122.3181], // Tukwila
-      [47.5609, -122.3254], // Beacon Hill
-      [47.5918, -122.3285], // International District
-      [47.6097, -122.3331], // Pioneer Square
-      [47.6205, -122.3331], // Capitol Hill
-      [47.6553, -122.3035], // UW
-      [47.7215, -122.3254], // Northgate
+      [47.4502, -122.3088] as [number, number], // SeaTac Airport
+      [47.4781, -122.3181] as [number, number], // Tukwila
+      [47.5609, -122.3254] as [number, number], // Beacon Hill
+      [47.5918, -122.3285] as [number, number], // International District
+      [47.6097, -122.3331] as [number, number], // Pioneer Square
+      [47.6205, -122.3331] as [number, number], // Capitol Hill
+      [47.6553, -122.3035] as [number, number], // UW
+      [47.7215, -122.3254] as [number, number], // Northgate
     ]
   },
   {
     id: '2-line',
     name: '2 Line', 
     path: [
-      [47.6097, -122.3331], // Downtown Seattle
-      [47.6087, -122.3420], // South Lake Union
-      [47.6205, -122.3570], // Ballard (future)
+      [47.6097, -122.3331] as [number, number], // Downtown Seattle
+      [47.6087, -122.3420] as [number, number], // South Lake Union
+      [47.6205, -122.3570] as [number, number], // Ballard (future)
     ]
   }
 ];
@@ -86,18 +86,18 @@ const SEATTLE_STREETCAR_ROUTES = [
     id: 'first-hill',
     name: 'First Hill Streetcar',
     path: [
-      [47.6097, -122.3331], // Pioneer Square
-      [47.6062, -122.3254], // First Hill
-      [47.6205, -122.3193], // Capitol Hill
+      [47.6097, -122.3331] as [number, number], // Pioneer Square
+      [47.6062, -122.3254] as [number, number], // First Hill
+      [47.6205, -122.3193] as [number, number], // Capitol Hill
     ]
   },
   {
     id: 'slu',
     name: 'South Lake Union Streetcar',
     path: [
-      [47.6087, -122.3331], // Westlake
-      [47.6205, -122.3420], // South Lake Union
-      [47.6298, -122.3493], // Queen Anne
+      [47.6087, -122.3331] as [number, number], // Westlake
+      [47.6205, -122.3420] as [number, number], // South Lake Union
+      [47.6298, -122.3493] as [number, number], // Queen Anne
     ]
   }
 ];
@@ -147,43 +147,99 @@ export const useLiveTransitData = (map: L.Map | null) => {
     return (bearing + 360) % 360;
   };
 
-  // Fetch King County Metro bus positions
+  // Parse GTFS-RT protobuf data for King County Metro
+  const parseGTFSRealtime = async (arrayBuffer: ArrayBuffer, vehicleType: 'bus' | 'rail' | 'tram', operator: string): Promise<LiveVehicle[]> => {
+    try {
+      // Install gtfs-realtime-bindings for protobuf parsing
+      const { FeedMessage } = await import('gtfs-realtime-bindings');
+      
+      const feed = FeedMessage.decode(new Uint8Array(arrayBuffer));
+      const vehicles: LiveVehicle[] = [];
+
+      feed.entity.forEach((entity) => {
+        if (entity.vehicle) {
+          const vehicle = entity.vehicle;
+          const position = vehicle.position;
+          
+          if (position && position.latitude && position.longitude) {
+            vehicles.push({
+              id: entity.id,
+              routeId: vehicle.trip?.routeId || 'unknown',
+              routeName: vehicle.trip?.routeId || 'Unknown Route',
+              latitude: position.latitude,
+              longitude: position.longitude,
+              bearing: position.bearing,
+              speed: position.speed ? position.speed * 2.237 : undefined, // Convert m/s to mph
+              timestamp: vehicle.timestamp ? vehicle.timestamp * 1000 : Date.now(),
+              vehicleType,
+              operator,
+              occupancyStatus: vehicle.occupancyStatus as any,
+              routeProgress: 0.5 // Default value, could be calculated based on trip progress
+            });
+          }
+        }
+      });
+
+      return vehicles;
+    } catch (error) {
+      console.error('Error parsing GTFS-RT data:', error);
+      return [];
+    }
+  };
+
+  // Fetch King County Metro bus positions using real GTFS-RT data
   const fetchKingCountyMetroBuses = async (): Promise<LiveVehicle[]> => {
     try {
-      const response = await fetch('https://s3.amazonaws.com/kcm-alerts-realtime-prod/vehiclepositions.pb');
+      // King County Metro GTFS-RT feed
+      const response = await fetch('https://s3.amazonaws.com/kcm-alerts-realtime-prod/vehiclepositions.pb', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/x-protobuf'
+        }
+      });
       
       if (!response.ok) {
-        console.warn('King County Metro API not available, using mock data');
+        console.warn('King County Metro API not available, using fallback');
         return generateRealisticBusData();
       }
 
-      return generateRealisticBusData();
+      const arrayBuffer = await response.arrayBuffer();
+      return await parseGTFSRealtime(arrayBuffer, 'bus', 'King County Metro');
     } catch (error) {
       console.warn('Error fetching King County Metro data:', error);
       return generateRealisticBusData();
     }
   };
 
-  // Fetch Sound Transit light rail positions
+  // Fetch Sound Transit light rail positions using real GTFS-RT data
   const fetchSoundTransitRail = async (): Promise<LiveVehicle[]> => {
     try {
-      const response = await fetch('https://www.soundtransit.org/GTFS-rt/VehiclePositions.pb');
+      // Sound Transit GTFS-RT feed
+      const response = await fetch('https://www.soundtransit.org/GTFS-rt/VehiclePositions.pb', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/x-protobuf'
+        }
+      });
       
       if (!response.ok) {
-        console.warn('Sound Transit API not available, using mock data');
+        console.warn('Sound Transit API not available, using fallback');
         return generateRealisticRailData();
       }
 
-      return generateRealisticRailData();
+      const arrayBuffer = await response.arrayBuffer();
+      return await parseGTFSRealtime(arrayBuffer, 'rail', 'Sound Transit');
     } catch (error) {
       console.warn('Error fetching Sound Transit data:', error);
       return generateRealisticRailData();
     }
   };
 
-  // Fetch Seattle Streetcar positions
+  // Fetch Seattle Streetcar positions (using mock data as no public API available)
   const fetchSeattleStreetcars = async (): Promise<LiveVehicle[]> => {
     try {
+      // Seattle Streetcar doesn't have a public real-time API
+      // We'll use realistic mock data based on actual routes
       return generateRealisticTramData();
     } catch (error) {
       console.warn('Error fetching Seattle Streetcar data:', error);
@@ -422,8 +478,8 @@ export const useLiveTransitData = (map: L.Map | null) => {
     // Initial fetch
     fetchLiveData();
     
-    // Set up interval to fetch every 10 seconds for more realistic updates
-    intervalRef.current = setInterval(fetchLiveData, 10000);
+    // Set up interval to fetch every 30 seconds for real data
+    intervalRef.current = setInterval(fetchLiveData, 30000);
     
     return () => {
       if (intervalRef.current) {
@@ -437,7 +493,7 @@ export const useLiveTransitData = (map: L.Map | null) => {
     if (!map) return;
     
     const handleMapMove = () => {
-      // Don't clear state on every move, just refresh data
+      // Refresh data when map moves
       fetchLiveData();
     };
     

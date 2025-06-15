@@ -1,7 +1,6 @@
 
 import L from 'leaflet';
 import { ScenicViewpoint } from '@/hooks/useScenicViewpoints';
-import { searchUnsplashImages, generateSearchQuery } from './unsplashService';
 
 export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marker => {
   // Create custom scenic viewpoint icon
@@ -26,9 +25,9 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
     icon: viewpointIcon
   });
 
-  // Enhanced image handling with Unsplash integration
-  const getImageHtml = async () => {
-    // First try existing image sources
+  // Enhanced image handling for existing image sources only
+  const getImageHtml = () => {
+    // Only try existing image sources
     if (viewpoint.image) {
       let imageUrl = viewpoint.image;
       
@@ -63,32 +62,6 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
                  onerror="this.style.display='none'" />
           </div>
         `;
-      }
-    }
-    
-    // Try to get Unsplash image for named viewpoints
-    if (viewpoint.name && 
-        !viewpoint.name.includes('Viewpoint') && 
-        !viewpoint.name.includes('View Point') &&
-        viewpoint.name.length > 5) {
-      
-      try {
-        const searchQuery = generateSearchQuery(viewpoint.name, viewpoint.coordinates);
-        console.log(`🖼️ Searching Unsplash for: "${searchQuery}"`);
-        
-        const unsplashImageUrl = await searchUnsplashImages(searchQuery);
-        
-        if (unsplashImageUrl) {
-          return `
-            <div class="mb-3">
-              <img src="${unsplashImageUrl}" alt="${viewpoint.name} scenic view" 
-                   class="w-full h-24 object-cover rounded-lg shadow-sm border" />
-              <div class="text-xs text-gray-500 mt-1 text-center">Photo from Unsplash</div>
-            </div>
-          `;
-        }
-      } catch (error) {
-        console.error('🖼️ Error fetching Unsplash image:', error);
       }
     }
     
@@ -163,9 +136,9 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
     return links.length > 0 ? `<div class="mt-3">${links.join('')}</div>` : '';
   };
 
-  // Create popup content with async image loading
-  const createPopupContent = async () => {
-    const imageHtml = await getImageHtml();
+  // Create popup content
+  const createPopupContent = () => {
+    const imageHtml = getImageHtml();
     
     return `
       <div class="scenic-viewpoint-popup p-4 min-w-[250px] max-w-[300px]">
@@ -178,27 +151,9 @@ export const createScenicViewpointMarker = (viewpoint: ScenicViewpoint): L.Marke
     `;
   };
 
-  // Set up popup with async content loading
-  marker.on('click', async () => {
-    const popupContent = await createPopupContent();
-    marker.bindPopup(popupContent, {
-      maxWidth: 320,
-      className: 'scenic-viewpoint-popup-container'
-    }).openPopup();
-  });
-
-  // Initial popup setup with basic content (for immediate display)
-  const initialPopupContent = `
-    <div class="scenic-viewpoint-popup p-4 min-w-[250px] max-w-[300px]">
-      <h3 class="font-bold text-lg text-gray-800 mb-2 leading-tight">${viewpoint.name}</h3>
-      <div class="mb-3 text-center text-gray-500">Loading image...</div>
-      <p class="text-sm text-gray-600 mb-3 leading-relaxed">${viewpoint.description}</p>
-      ${getAdditionalInfo()}
-      ${getExternalLinks()}
-    </div>
-  `;
-
-  marker.bindPopup(initialPopupContent, {
+  // Set up popup
+  const popupContent = createPopupContent();
+  marker.bindPopup(popupContent, {
     maxWidth: 320,
     className: 'scenic-viewpoint-popup-container'
   });

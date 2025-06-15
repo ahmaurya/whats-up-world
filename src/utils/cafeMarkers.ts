@@ -4,12 +4,12 @@ import { Coffee } from 'lucide-react';
 import { Cafe } from '@/hooks/useCafes';
 
 export const createCafeMarker = (cafe: Cafe, onCafeClick: (cafe: Cafe) => void): L.Marker => {
-  // Create custom cafe icon
+  // Create custom cafe icon with smaller size to match other markers
   const cafeIcon = L.divIcon({
     html: `
       <div class="relative flex items-center justify-center">
-        <div class="bg-amber-600 rounded-full p-2 shadow-lg border-2 border-white">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="bg-amber-600 rounded-full p-1 shadow-lg border-2 border-white">
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M10 2v2a6 6 0 1 0 12 0V2a6 6 0 1 0-12 0Z"/>
             <path d="M8.5 8.5h7"/>
             <path d="M16 10a4 4 0 0 1-8 0"/>
@@ -18,9 +18,9 @@ export const createCafeMarker = (cafe: Cafe, onCafeClick: (cafe: Cafe) => void):
       </div>
     `,
     className: 'cafe-marker',
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -32]
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+    popupAnchor: [0, -12]
   });
 
   const marker = L.marker([cafe.coordinates[1], cafe.coordinates[0]], {

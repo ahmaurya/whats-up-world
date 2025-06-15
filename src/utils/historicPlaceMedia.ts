@@ -1,4 +1,6 @@
 
+import { supabase } from '@/integrations/supabase/client';
+
 export interface MediaLink {
   type: 'youtube';
   url: string;
@@ -10,78 +12,48 @@ export interface MediaLink {
 
 export const searchHistoricPlaceMedia = async (placeName: string, cityName?: string): Promise<MediaLink[]> => {
   try {
-    const cleanName = placeName
-      .replace(/historic|building|site|place/gi, '')
-      .trim();
+    console.log(`Searching for media for: ${placeName}${cityName ? ` in ${cityName}` : ''}`);
     
-    const mediaLinks: MediaLink[] = [];
-    
-    // Search for YouTube content using YouTube API with city name
-    const youtubeResults = await searchYouTube(cleanName, cityName);
-    mediaLinks.push(...youtubeResults);
-    
-    return mediaLinks;
-  } catch (error) {
-    console.error('Error searching for historic place media:', error);
-    return [];
-  }
-};
+    // Call the secure Supabase Edge Function
+    const { data, error } = await supabase.functions.invoke('search-youtube-videos', {
+      body: {
+        placeName,
+        cityName
+      }
+    });
 
-const searchYouTube = async (placeName: string, cityName?: string): Promise<MediaLink[]> => {
-  try {
-    // Include city name in search query for better results
-    const cityPart = cityName ? ` ${cityName}` : '';
-    const searchQuery = `${placeName}${cityPart} history historical significance documentary`;
-    const encodedQuery = encodeURIComponent(searchQuery);
-    
-    // This is a placeholder implementation
-    // To use the actual YouTube API, you would need:
-    // 1. YouTube Data API v3 key
-    // 2. Make a request to: https://www.googleapis.com/youtube/v3/search
-    
-    // For demonstration, return a search link that will show relevant videos
-    return [{
-      type: 'youtube',
-      url: `https://www.youtube.com/results?search_query=${encodedQuery}`,
-      title: `Watch "${placeName}${cityPart}" historical videos`,
-      description: 'Historical documentaries and educational content'
-    }];
-  } catch (error) {
-    console.error('Error searching YouTube:', error);
-    return [];
-  }
-};
-
-// Function to get YouTube API integration (placeholder for actual API implementation)
-export const getYouTubeVideos = async (placeName: string, cityName?: string, apiKey?: string): Promise<MediaLink[]> => {
-  if (!apiKey) {
-    console.log('YouTube API key not provided, using fallback search');
-    return searchYouTube(placeName, cityName);
-  }
-
-  try {
-    const cityPart = cityName ? ` ${cityName}` : '';
-    const searchQuery = `${placeName}${cityPart} history historical significance`;
-    const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQuery)}&type=video&maxResults=2&key=${apiKey}`
-    );
-
-    if (!response.ok) {
-      throw new Error('YouTube API request failed');
+    if (error) {
+      console.error('Error calling search-youtube-videos function:', error);
+      // Fallback to search URL if API fails
+      return getFallbackSearchLinks(placeName, cityName);
     }
 
-    const data = await response.json();
+    if (data?.mediaLinks && data.mediaLinks.length > 0) {
+      console.log(`Found ${data.mediaLinks.length} YouTube videos via API`);
+      return data.mediaLinks;
+    }
+
+    // Fallback if no results from API
+    console.log('No results from YouTube API, using fallback search');
+    return getFallbackSearchLinks(placeName, cityName);
     
-    return data.items?.map((item: any) => ({
-      type: 'youtube' as const,
-      url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-      title: item.snippet.title,
-      description: item.snippet.description?.substring(0, 100) + '...',
-      thumbnailUrl: item.snippet.thumbnails?.medium?.url,
-      videoId: item.id.videoId
-    })) || [];
   } catch (error) {
-    console.error('Error fetching from YouTube API:', error);
-    return searchYouTube(placeName, cityName);
+    console.error('Error searching for historic place media:', error);
+    return getFallbackSearchLinks(placeName, cityName);
   }
+};
+
+// Fallback function that creates search URLs when API is unavailable
+const getFallbackSearchLinks = (placeName: string, cityName?: string): MediaLink[] => {
+  const cleanName = placeName.replace(/historic|building|site|place/gi, '').trim();
+  const cityPart = cityName ? ` ${cityName}` : '';
+  const searchQuery = `${cleanName}${cityPart} history historical significance documentary`;
+  const encodedQuery = encodeURIComponent(searchQuery);
+  
+  return [{
+    type: 'youtube',
+    url: `https://www.youtube.com/results?search_query=${encodedQuery}`,
+    title: `Search for "${cleanName}${cityPart}" historical videos`,
+    description: 'Click to search for historical documentaries and educational content on YouTube'
+  }];
 };

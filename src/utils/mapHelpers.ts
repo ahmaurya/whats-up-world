@@ -17,8 +17,9 @@ export const shouldFetchRestaurants = (
   return distance > 2000 || !lastFetchedBounds.intersects(currentBounds);
 };
 
+// Removed zoom level restriction for GDELT events - now always returns true
 export const isZoomLevelSufficient = (zoom: number): boolean => {
-  return zoom >= 12;
+  return true; // Show events at any zoom level
 };
 
 export const createDebouncer = (callback: Function, delay: number) => {

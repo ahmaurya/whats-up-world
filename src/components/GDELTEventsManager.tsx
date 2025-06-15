@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { useMap } from './MapProvider';
 import { useGDELTEvents } from '@/hooks/useGDELTEvents';
-import { isZoomLevelSufficient, createDebouncer } from '@/utils/mapHelpers';
+import { createDebouncer } from '@/utils/mapHelpers';
 
 interface GDELTEventsManagerProps {
   map: L.Map | null;
@@ -15,16 +15,25 @@ const GDELTEventsManager: React.FC<GDELTEventsManagerProps> = ({ map }) => {
   const lastBoundsRef = useRef<L.LatLngBounds | null>(null);
   const [currentBounds, setCurrentBounds] = React.useState<L.LatLngBounds | null>(null);
 
-  const shouldFetch = showGDELTEvents && 
-                     currentBounds && 
-                     map && 
-                     isZoomLevelSufficient(map.getZoom());
+  // Removed zoom level restriction - now shows events at any zoom level
+  const shouldFetch = showGDELTEvents && currentBounds && map;
 
-  const { events, loading } = useGDELTEvents(currentBounds, shouldFetch);
+  const { events, loading, error } = useGDELTEvents(currentBounds, shouldFetch);
+
+  console.log('🌍 GDELTEventsManager state:', {
+    showGDELTEvents,
+    currentBounds: !!currentBounds,
+    mapExists: !!map,
+    shouldFetch,
+    eventsCount: events.length,
+    loading,
+    error
+  });
 
   // Debounced function to update bounds
   const debouncedUpdateBounds = React.useMemo(
     () => createDebouncer((bounds: L.LatLngBounds) => {
+      console.log('🌍 GDELTEventsManager: Updating bounds', bounds.toBBoxString());
       setCurrentBounds(bounds);
       lastBoundsRef.current = bounds;
     }, 500),
@@ -58,15 +67,10 @@ const GDELTEventsManager: React.FC<GDELTEventsManagerProps> = ({ map }) => {
       const bounds = map.getBounds();
       const zoom = map.getZoom();
       
-      if (isZoomLevelSufficient(zoom)) {
-        debouncedUpdateBounds(bounds);
-      } else {
-        console.log('🔍 Zoom level too low for GDELT events, clearing markers');
-        if (markersLayerRef.current) {
-          markersLayerRef.current.clearLayers();
-        }
-        setCurrentBounds(null);
-      }
+      console.log('🌍 GDELTEventsManager: Map changed', { zoom, bounds: bounds.toBBoxString() });
+      
+      // Always update bounds regardless of zoom level
+      debouncedUpdateBounds(bounds);
     };
 
     // Initial bounds set
@@ -131,12 +135,17 @@ const GDELTEventsManager: React.FC<GDELTEventsManagerProps> = ({ map }) => {
     // Clear existing markers
     markersLayerRef.current.clearLayers();
 
-    if (!events.length) return;
+    if (!events.length) {
+      console.log('🌍 GDELTEventsManager: No events to display');
+      return;
+    }
 
     console.log(`🌍 Adding ${events.length} GDELT events to map`);
 
-    events.forEach((event) => {
+    events.forEach((event, index) => {
       if (!markersLayerRef.current) return;
+
+      console.log(`🌍 Adding event ${index}:`, event);
 
       const marker = L.marker(
         [event.coordinates[1], event.coordinates[0]], // Leaflet uses [lat, lng]
@@ -158,6 +167,16 @@ const GDELTEventsManager: React.FC<GDELTEventsManagerProps> = ({ map }) => {
       setCurrentBounds(null);
     }
   }, [showGDELTEvents]);
+
+  // Log loading and error states
+  useEffect(() => {
+    if (loading) {
+      console.log('🌍 GDELT events loading...');
+    }
+    if (error) {
+      console.error('🌍 GDELT events error:', error);
+    }
+  }, [loading, error]);
 
   return null;
 };

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -123,8 +122,8 @@ const MapControls = () => {
       toggle: toggleScenicViewpoints
     },
     {
-      id: 'geocoded-images',
-      label: 'Geocoded Images',
+      id: 'cityscape',
+      label: 'Cityscape',
       icon: Images,
       color: 'bg-pink-500',
       checked: showGeocodedImages,

@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { LiveVehicle } from '@/hooks/useLiveTransitData';
+import { useLiveTransitData } from '@/hooks/useLiveTransitData';
 
 interface LiveVehicleMarkersProps {
   map: L.Map | null;
@@ -17,6 +18,7 @@ const LiveVehicleMarkers: React.FC<LiveVehicleMarkersProps> = ({
   visible
 }) => {
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const { convertOccupancyStatus } = useLiveTransitData(null);
 
   // Create custom icons for different vehicle types
   const createVehicleIcon = (vehicle: LiveVehicle) => {
@@ -91,7 +93,7 @@ const LiveVehicleMarkers: React.FC<LiveVehicleMarkersProps> = ({
   // Create popup content for vehicle
   const createPopupContent = (vehicle: LiveVehicle) => {
     const timeSinceUpdate = Math.floor((Date.now() - vehicle.timestamp) / 1000);
-    const occupancyDisplay = vehicle.occupancyStatus?.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown';
+    const occupancyDisplay = convertOccupancyStatus(vehicle.occupancyStatus);
     
     return `
       <div class="live-vehicle-popup" style="min-width: 200px;">
@@ -175,7 +177,7 @@ const LiveVehicleMarkers: React.FC<LiveVehicleMarkersProps> = ({
       });
       markersRef.current.clear();
     };
-  }, [map, vehicles, visible, vehicleType]);
+  }, [map, vehicles, visible, vehicleType, convertOccupancyStatus]);
 
   return null;
 };

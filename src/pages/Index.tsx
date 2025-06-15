@@ -54,19 +54,6 @@ const Index = () => {
           </div>
         )}
         
-        {/* Show authentication disabled notice */}
-        <div className="absolute top-20 right-4 z-[2001] bg-blue-100 border border-blue-400 text-blue-800 px-3 py-2 rounded text-sm shadow-lg">
-          Authentication Disabled - Development Mode
-          <Button 
-            onClick={() => navigate('/auth')} 
-            variant="outline" 
-            size="sm" 
-            className="ml-2 h-6 text-xs"
-          >
-            Test Auth
-          </Button>
-        </div>
-        
         <MapProvider>
           <Map />
         </MapProvider>

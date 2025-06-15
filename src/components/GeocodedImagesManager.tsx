@@ -81,7 +81,7 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
   // Fetch images based on current map bounds - only when bounds change significantly
   const { images, loading, error } = useGeocodedImages(mapBounds);
 
-  // Function to select up to 100 images spread evenly across the current view
+  // Function to select up to 100 images with max 3 per city block
   const selectDistributedImages = (allImages: GeocodedImage[], currentViewBounds: any, maxImages: number = 100): GeocodedImage[] => {
     if (!currentViewBounds) return allImages.slice(0, maxImages);
     
@@ -93,39 +93,56 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
       image.longitude <= currentViewBounds.east
     );
 
-    if (visibleImages.length <= maxImages) {
-      return visibleImages;
-    }
+    if (visibleImages.length === 0) return [];
 
-    // Create a grid to distribute images evenly
-    const gridSize = Math.ceil(Math.sqrt(maxImages));
-    const latStep = (currentViewBounds.north - currentViewBounds.south) / gridSize;
-    const lngStep = (currentViewBounds.east - currentViewBounds.west) / gridSize;
+    // Create city block grid - approximately 100m x 100m blocks
+    const avgLat = (currentViewBounds.north + currentViewBounds.south) / 2;
+    const latDegreeDistance = 111000; // meters per degree latitude
+    const lngDegreeDistance = 111000 * Math.cos(avgLat * Math.PI / 180); // meters per degree longitude
+    
+    const blockSizeMeters = 100; // 100m city blocks
+    const latBlockSize = blockSizeMeters / latDegreeDistance;
+    const lngBlockSize = blockSizeMeters / lngDegreeDistance;
 
-    const grid: Map<string, GeocodedImage[]> = new Map();
+    // Group images by city blocks
+    const cityBlocks: Map<string, GeocodedImage[]> = new Map();
 
-    // Group images by grid cells
     visibleImages.forEach(image => {
-      const latIndex = Math.floor((image.latitude - currentViewBounds.south) / latStep);
-      const lngIndex = Math.floor((image.longitude - currentViewBounds.west) / lngStep);
-      const gridKey = `${Math.max(0, Math.min(gridSize - 1, latIndex))}_${Math.max(0, Math.min(gridSize - 1, lngIndex))}`;
+      const blockLat = Math.floor((image.latitude - currentViewBounds.south) / latBlockSize);
+      const blockLng = Math.floor((image.longitude - currentViewBounds.west) / lngBlockSize);
+      const blockKey = `${blockLat}_${blockLng}`;
       
-      if (!grid.has(gridKey)) {
-        grid.set(gridKey, []);
+      if (!cityBlocks.has(blockKey)) {
+        cityBlocks.set(blockKey, []);
       }
-      grid.get(gridKey)!.push(image);
+      cityBlocks.get(blockKey)!.push(image);
     });
 
-    // Select one image from each grid cell
+    // Select max 3 images per city block, prioritizing diversity
     const selectedImages: GeocodedImage[] = [];
-    const gridCells = Array.from(grid.entries()).sort((a, b) => a[1].length - b[1].length);
+    const maxImagesPerBlock = 3;
 
-    for (const [_, cellImages] of gridCells) {
+    for (const [blockKey, blockImages] of cityBlocks.entries()) {
       if (selectedImages.length >= maxImages) break;
-      selectedImages.push(cellImages[0]);
+
+      // Sort by source diversity first, then by some quality metric if available
+      const sortedBlockImages = blockImages.sort((a, b) => {
+        // Prioritize different sources for diversity
+        if (a.source !== b.source) {
+          const sourceOrder = { 'nasa': 0, 'mapillary': 1, 'flickr': 2 };
+          return (sourceOrder[a.source] || 3) - (sourceOrder[b.source] || 3);
+        }
+        // Then by id for consistent ordering
+        return a.id.localeCompare(b.id);
+      });
+
+      // Take up to 3 images from this block
+      const imagesToAdd = sortedBlockImages.slice(0, Math.min(maxImagesPerBlock, maxImages - selectedImages.length));
+      selectedImages.push(...imagesToAdd);
     }
 
-    return selectedImages;
+    console.log(`🏙️ Selected ${selectedImages.length} images across ${cityBlocks.size} city blocks (max 3 per block)`);
+    return selectedImages.slice(0, maxImages);
   };
 
   // Gradually update displayed images when new images arrive

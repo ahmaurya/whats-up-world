@@ -52,6 +52,8 @@ export const useHistoricPlaces = (bounds: L.LatLngBounds | null, enabled: boolea
 
         const data = await response.json();
         
+        console.log('🏛️ Raw API response:', data);
+        
         if (data.features) {
           const places: HistoricPlace[] = data.features.map((feature: any, index: number) => ({
             id: feature.attributes.OBJECTID?.toString() || `historic-${index}`,
@@ -64,7 +66,8 @@ export const useHistoricPlaces = (bounds: L.LatLngBounds | null, enabled: boolea
             nris_reference: feature.attributes.NRIS_REF || ''
           }));
 
-          console.log(`Fetched ${places.length} historic places`);
+          console.log(`🏛️ Fetched ${places.length} historic places:`, places);
+          console.log('🏛️ Sample place data:', places[0]);
           setHistoricPlaces(places);
         }
       } catch (err) {

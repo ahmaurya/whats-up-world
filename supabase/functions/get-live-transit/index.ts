@@ -57,7 +57,7 @@ serve(async (req) => {
     let agencyName: string
     let agencyId: string
 
-    // Use OneBusAway for all agencies since KCM direct API is no longer accessible
+    // Use OneBusAway for all agencies with TEST API key
     switch (agency.toLowerCase()) {
       case 'kcm':
         // King County Metro via OneBusAway (agency ID 1)

@@ -10,6 +10,9 @@ export interface ScenicViewpoint {
   direction?: string;
   image?: string;
   wikipedia?: string;
+  website?: string;
+  operator?: string;
+  opening_hours?: string;
 }
 
 export const useScenicViewpoints = (bounds: L.LatLngBounds | null, enabled: boolean) => {
@@ -41,6 +44,7 @@ export const useScenicViewpoints = (bounds: L.LatLngBounds | null, enabled: bool
           (
             node["tourism"="viewpoint"](${south},${west},${north},${east});
             way["tourism"="viewpoint"](${south},${west},${north},${east});
+            relation["tourism"="viewpoint"](${south},${west},${north},${east});
           );
           out geom;
         `;
@@ -76,16 +80,46 @@ export const useScenicViewpoints = (bounds: L.LatLngBounds | null, enabled: bool
               }
 
               if (!lat || !lon) return null;
+
+              // Create more detailed descriptions based on available tags
+              const tags = element.tags || {};
+              let description = tags.description || tags.note || '';
+              
+              // If no description, try to create one from available information
+              if (!description) {
+                const parts = [];
+                if (tags.natural) parts.push(`Beautiful ${tags.natural} views`);
+                if (tags.mountain_range) parts.push(`overlooking ${tags.mountain_range}`);
+                if (tags.ele) parts.push(`at ${tags.ele}m elevation`);
+                if (tags.access && tags.access !== 'yes') parts.push(`(${tags.access} access)`);
+                
+                if (parts.length > 0) {
+                  description = parts.join(' ');
+                } else {
+                  description = 'Scenic viewpoint offering panoramic views of the surrounding landscape';
+                }
+              }
+
+              // Enhance name if it's generic
+              let name = tags.name || 'Scenic Viewpoint';
+              if (name === 'Scenic Viewpoint' || name === 'Viewpoint') {
+                if (tags.ref) name = `Viewpoint ${tags.ref}`;
+                else if (tags.ele) name = `${tags.ele}m Viewpoint`;
+                else if (tags.natural) name = `${tags.natural} Viewpoint`;
+              }
               
               return {
                 id: `osm-viewpoint-${element.id}`,
-                name: element.tags?.name || 'Scenic Viewpoint',
+                name: name,
                 coordinates: [lon, lat],
-                description: element.tags?.description || element.tags?.note || 'Scenic viewpoint with beautiful views',
-                elevation: element.tags?.ele || element.tags?.elevation,
-                direction: element.tags?.direction,
-                image: element.tags?.image || element.tags?.wikimedia_commons,
-                wikipedia: element.tags?.wikipedia
+                description: description,
+                elevation: tags.ele || tags.elevation,
+                direction: tags.direction,
+                image: tags.image || tags.wikimedia_commons,
+                wikipedia: tags.wikipedia,
+                website: tags.website,
+                operator: tags.operator,
+                opening_hours: tags.opening_hours
               };
             }).filter(viewpoint => viewpoint !== null);
             

@@ -6,7 +6,7 @@ export interface GeocodedImage {
   fullImageUrl: string;
   title: string;
   description?: string;
-  source: 'flickr' | 'mapillary' | 'nasa' | 'sample';
+  source: 'flickr' | 'mapillary' | 'nasa';
   author?: string;
   tags?: string[];
 }
@@ -148,36 +148,6 @@ class ImageDataService {
     }
   }
 
-  // Sample data for testing when APIs are not configured
-  getSampleImages(params: ImageSearchParams): GeocodedImage[] {
-    const { bounds } = params;
-    const centerLat = (bounds.north + bounds.south) / 2;
-    const centerLon = (bounds.east + bounds.west) / 2;
-
-    return [
-      {
-        id: 'sample_1',
-        latitude: centerLat + 0.01,
-        longitude: centerLon + 0.01,
-        thumbnailUrl: 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=50&h=50&fit=crop',
-        fullImageUrl: 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=300&fit=crop',
-        title: 'Seattle Cityscape',
-        description: 'Beautiful view of downtown Seattle',
-        source: 'sample'
-      },
-      {
-        id: 'sample_2', 
-        latitude: centerLat - 0.01,
-        longitude: centerLon - 0.01,
-        thumbnailUrl: 'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=50&h=50&fit=crop',
-        fullImageUrl: 'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=400&h=300&fit=crop',
-        title: 'Tech Hub',
-        description: 'Technology workspace in Seattle',
-        source: 'sample'
-      }
-    ];
-  }
-
   async fetchAllImages(params: ImageSearchParams): Promise<GeocodedImage[]> {
     console.log('🖼️ Fetching images from all sources...');
     
@@ -187,8 +157,6 @@ class ImageDataService {
       this.fetchNASAImages(params),
       // Flickr still needs API key configuration
       // this.fetchFlickrImages(params),
-      // Keep sample data for demonstration
-      Promise.resolve(this.getSampleImages(params))
     ];
 
     try {
@@ -202,7 +170,7 @@ class ImageDataService {
       return allImages;
     } catch (error) {
       console.error('Error fetching images from all sources:', error);
-      return this.getSampleImages(params);
+      return [];
     }
   }
 }

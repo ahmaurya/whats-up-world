@@ -1,0 +1,28 @@
+
+import React from 'react';
+import CitySearch from './CitySearch';
+
+interface HeaderProps {
+  onCitySelect: (city: { name: string; country: string; coordinates: [number, number] }) => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onCitySelect }) => {
+  return (
+    <header className="absolute top-0 left-0 right-0 z-[2000] bg-white shadow-md border-b border-gray-200">
+      <div className="flex items-center justify-between px-4 py-3">
+        <h1 className="text-xl font-bold text-gray-800">
+          Customizable Maps
+        </h1>
+        
+        <div className="flex items-center gap-4">
+          <CitySearch 
+            onCitySelect={onCitySelect}
+            placeholder="Search for a city..."
+          />
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default Header;

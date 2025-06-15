@@ -49,6 +49,9 @@ export const useLeaflet = () => {
               addPoint(point);
             });
           }
+
+          // Set up city selection listener
+          setupCitySelectionListener();
         },
         (error) => {
           console.warn('Geolocation failed, using default location:', error);
@@ -67,6 +70,9 @@ export const useLeaflet = () => {
               addPoint(point);
             });
           }
+
+          // Set up city selection listener
+          setupCitySelectionListener();
         },
         {
           enableHighAccuracy: true,
@@ -91,8 +97,34 @@ export const useLeaflet = () => {
           addPoint(point);
         });
       }
+
+      // Set up city selection listener
+      setupCitySelectionListener();
     }
   }, [addPoint]);
+
+  const setupCitySelectionListener = useCallback(() => {
+    const handleCitySelection = (event: CustomEvent) => {
+      if (map.current && event.detail) {
+        const { coordinates, name, country } = event.detail;
+        console.log(`Zooming to ${name}, ${country} at coordinates:`, coordinates);
+        
+        // Zoom to the selected city with a nice animation
+        map.current.setView([coordinates[1], coordinates[0]], 12, {
+          animate: true,
+          duration: 1.5
+        });
+      }
+    };
+
+    // Add event listener for city selection
+    window.addEventListener('citySelected', handleCitySelection as EventListener);
+
+    // Return cleanup function
+    return () => {
+      window.removeEventListener('citySelected', handleCitySelection as EventListener);
+    };
+  }, []);
 
   // Cleanup function
   const cleanup = useCallback(() => {

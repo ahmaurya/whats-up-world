@@ -14,6 +14,8 @@ import ScenicViewpointsManager from './ScenicViewpointsManager';
 import FarmersMarketsManager from './FarmersMarketsManager';
 import ParkingManager from './ParkingManager';
 import DisabledParkingManager from './DisabledParkingManager';
+import GeocodedImagesManager from './GeocodedImagesManager';
+import { useMap } from './MapProvider';
 import { Restaurant } from '@/hooks/useRestaurants';
 import { Cafe } from '@/hooks/useCafes';
 
@@ -21,6 +23,7 @@ const Map = () => {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const { mapContainer, map, initializeMap } = useLeaflet();
+  const { showGeocodedImages } = useMap();
 
   React.useEffect(() => {
     initializeMap();
@@ -56,6 +59,10 @@ const Map = () => {
       <FarmersMarketsManager map={map.current} />
       <ParkingManager map={map.current} />
       <DisabledParkingManager map={map.current} />
+      <GeocodedImagesManager 
+        map={map.current} 
+        visible={showGeocodedImages} 
+      />
       {selectedRestaurant && (
         <RestaurantPopup
           restaurant={selectedRestaurant}

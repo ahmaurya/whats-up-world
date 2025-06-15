@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface MapContextType {
@@ -31,6 +30,8 @@ interface MapContextType {
   toggleParking: () => void;
   showDisabledParking: boolean;
   toggleDisabledParking: () => void;
+  showGeocodedImages: boolean;
+  toggleGeocodedImages: () => void;
 }
 
 const MapContext = createContext<MapContextType | undefined>(undefined);
@@ -62,6 +63,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
   const [showFarmersMarkets, setShowFarmersMarkets] = useState(false);
   const [showParking, setShowParking] = useState(false);
   const [showDisabledParking, setShowDisabledParking] = useState(false);
+  const [showGeocodedImages, setShowGeocodedImages] = useState(false);
 
   const addPoint = (point: [number, number]) => {
     setSelectedPoints(prev => {
@@ -151,6 +153,10 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
     setShowDisabledParking(prev => !prev);
   };
 
+  const toggleGeocodedImages = () => {
+    setShowGeocodedImages(prev => !prev);
+  };
+
   return (
     <MapContext.Provider value={{
       selectedPoints,
@@ -181,7 +187,9 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
       showParking,
       toggleParking,
       showDisabledParking,
-      toggleDisabledParking
+      toggleDisabledParking,
+      showGeocodedImages,
+      toggleGeocodedImages
     }}>
       {children}
     </MapContext.Provider>

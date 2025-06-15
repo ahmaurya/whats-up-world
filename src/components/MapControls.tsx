@@ -1,10 +1,9 @@
 
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useMap } from './MapProvider';
-import { Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, Coffee, Eye, ShoppingBasket, CircleParking } from 'lucide-react';
+import { Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, Coffee, Eye, ShoppingBasket, CircleParking, Images } from 'lucide-react';
 
 const MapControls = () => {
   const { 
@@ -29,7 +28,9 @@ const MapControls = () => {
     showParking,
     toggleParking,
     showDisabledParking,
-    toggleDisabledParking
+    toggleDisabledParking,
+    showGeocodedImages,
+    toggleGeocodedImages
   } = useMap();
 
   const layerOptions = [
@@ -120,6 +121,14 @@ const MapControls = () => {
       color: 'bg-indigo-600',
       checked: showScenicViewpoints,
       toggle: toggleScenicViewpoints
+    },
+    {
+      id: 'geocoded-images',
+      label: 'Geocoded Images',
+      icon: Images,
+      color: 'bg-pink-500',
+      checked: showGeocodedImages,
+      toggle: toggleGeocodedImages
     }
   ];
 
@@ -149,4 +158,3 @@ const MapControls = () => {
 };
 
 export default MapControls;
-

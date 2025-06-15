@@ -6,11 +6,14 @@ import MapControls from './MapControls';
 import RestaurantPopup from './RestaurantPopup';
 import TransitLinesManager from './TransitLinesManager';
 import RestaurantMarkersManager from './RestaurantMarkersManager';
+import CafeMarkersManager from './CafeMarkersManager';
 import HistoricPlacesManager from './HistoricPlacesManager';
 import { Restaurant } from '@/hooks/useRestaurants';
+import { Cafe } from '@/hooks/useCafes';
 
 const Map = () => {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const { mapContainer, map, initializeMap } = useLeaflet();
 
   React.useEffect(() => {
@@ -19,6 +22,12 @@ const Map = () => {
 
   const handleRestaurantClick = (restaurant: Restaurant) => {
     setSelectedRestaurant(restaurant);
+    setSelectedCafe(null); // Close cafe popup if open
+  };
+
+  const handleCafeClick = (cafe: Cafe) => {
+    setSelectedCafe(cafe);
+    setSelectedRestaurant(null); // Close restaurant popup if open
   };
 
   return (
@@ -29,6 +38,10 @@ const Map = () => {
       <RestaurantMarkersManager 
         map={map.current} 
         onRestaurantClick={handleRestaurantClick} 
+      />
+      <CafeMarkersManager 
+        map={map.current} 
+        onCafeClick={handleCafeClick} 
       />
       <HistoricPlacesManager map={map.current} />
       {selectedRestaurant && (

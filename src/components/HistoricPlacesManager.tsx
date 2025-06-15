@@ -107,7 +107,7 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
     const mediaLinks = await searchHistoricPlaceMedia(place.name);
 
     let popupContent = `
-      <div style="max-width: 280px;">
+      <div style="max-width: 320px;">
         <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold;">${place.name}</h3>
         <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Type:</strong> ${place.resource_type}</p>
         ${hasValidLocation ? `<p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Location:</strong> ${place.county}, ${place.state}</p>` : ''}
@@ -118,19 +118,34 @@ const HistoricPlacesManager: React.FC<HistoricPlacesManagerProps> = ({ map }) =>
     if (mediaLinks.length > 0) {
       popupContent += `
         <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e5e5;">
-          <h4 style="margin: 0 0 6px 0; font-size: 12px; font-weight: bold; color: #666;">Learn More:</h4>
+          <h4 style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; color: #666;">📺 Historical Videos:</h4>
       `;
 
       mediaLinks.forEach(link => {
-        const icon = link.type === 'youtube' ? '📺' : '📷';
-        popupContent += `
-          <div style="margin-bottom: 6px;">
-            <a href="${link.url}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-size: 12px; font-weight: 500; display: block;">
-              ${icon} ${link.title}
-            </a>
-            ${link.description ? `<p style="margin: 2px 0 0 0; font-size: 11px; color: #666; padding-left: 16px;">${link.description}</p>` : ''}
-          </div>
-        `;
+        if (link.thumbnailUrl && link.videoId) {
+          // Show actual video thumbnail and embed for real API results
+          popupContent += `
+            <div style="margin-bottom: 12px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden;">
+              <img src="${link.thumbnailUrl}" style="width: 100%; height: auto; display: block;" alt="Video thumbnail">
+              <div style="padding: 8px;">
+                <a href="${link.url}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">
+                  ${link.title}
+                </a>
+                ${link.description ? `<p style="margin: 0; font-size: 11px; color: #666;">${link.description}</p>` : ''}
+              </div>
+            </div>
+          `;
+        } else {
+          // Fallback for search links
+          popupContent += `
+            <div style="margin-bottom: 8px;">
+              <a href="${link.url}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-size: 12px; font-weight: 500; display: block;">
+                📺 ${link.title}
+              </a>
+              ${link.description ? `<p style="margin: 2px 0 0 0; font-size: 11px; color: #666; padding-left: 16px;">${link.description}</p>` : ''}
+            </div>
+          `;
+        }
       });
 
       popupContent += `</div>`;

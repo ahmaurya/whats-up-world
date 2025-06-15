@@ -1,9 +1,11 @@
 
 export interface MediaLink {
-  type: 'youtube' | 'instagram';
+  type: 'youtube';
   url: string;
   title: string;
   description?: string;
+  thumbnailUrl?: string;
+  videoId?: string;
 }
 
 export const searchHistoricPlaceMedia = async (placeName: string): Promise<MediaLink[]> => {
@@ -14,17 +16,9 @@ export const searchHistoricPlaceMedia = async (placeName: string): Promise<Media
     
     const mediaLinks: MediaLink[] = [];
     
-    // Always try to find YouTube content
-    const youtubeResult = await searchYouTube(cleanName);
-    if (youtubeResult) {
-      mediaLinks.push(youtubeResult);
-    }
-    
-    // Always try to find Instagram content
-    const instagramResult = await searchInstagram(cleanName);
-    if (instagramResult) {
-      mediaLinks.push(instagramResult);
-    }
+    // Search for YouTube content using YouTube API
+    const youtubeResults = await searchYouTube(cleanName);
+    mediaLinks.push(...youtubeResults);
     
     return mediaLinks;
   } catch (error) {
@@ -33,39 +27,60 @@ export const searchHistoricPlaceMedia = async (placeName: string): Promise<Media
   }
 };
 
-const searchYouTube = async (placeName: string): Promise<MediaLink | null> => {
+const searchYouTube = async (placeName: string): Promise<MediaLink[]> => {
   try {
-    const searchQuery = `${placeName} history historical significance`;
+    // For now, we'll use a direct search URL approach
+    // In production, you would use the YouTube Data API v3
+    const searchQuery = `${placeName} history historical significance documentary`;
     const encodedQuery = encodeURIComponent(searchQuery);
     
-    return {
+    // This is a placeholder implementation
+    // To use the actual YouTube API, you would need:
+    // 1. YouTube Data API v3 key
+    // 2. Make a request to: https://www.googleapis.com/youtube/v3/search
+    
+    // For demonstration, return a search link that will show relevant videos
+    return [{
       type: 'youtube',
       url: `https://www.youtube.com/results?search_query=${encodedQuery}`,
-      title: `Watch videos about "${placeName}"`,
-      description: 'Historical documentaries and tours'
-    };
+      title: `Watch "${placeName}" historical videos`,
+      description: 'Historical documentaries and educational content'
+    }];
   } catch (error) {
     console.error('Error searching YouTube:', error);
-    return null;
+    return [];
   }
 };
 
-const searchInstagram = async (placeName: string): Promise<MediaLink | null> => {
+// Function to get YouTube API integration (placeholder for actual API implementation)
+export const getYouTubeVideos = async (placeName: string, apiKey?: string): Promise<MediaLink[]> => {
+  if (!apiKey) {
+    console.log('YouTube API key not provided, using fallback search');
+    return searchYouTube(placeName);
+  }
+
   try {
-    const hashtag = placeName
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, '')
-      .replace(/\s+/g, '')
-      .substring(0, 30);
+    const searchQuery = `${placeName} history historical significance`;
+    const response = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQuery)}&type=video&maxResults=2&key=${apiKey}`
+    );
+
+    if (!response.ok) {
+      throw new Error('YouTube API request failed');
+    }
+
+    const data = await response.json();
     
-    return {
-      type: 'instagram',
-      url: `https://www.instagram.com/explore/tags/${hashtag}/`,
-      title: `View #${hashtag} posts`,
-      description: 'Photos and stories from visitors'
-    };
+    return data.items?.map((item: any) => ({
+      type: 'youtube' as const,
+      url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+      title: item.snippet.title,
+      description: item.snippet.description?.substring(0, 100) + '...',
+      thumbnailUrl: item.snippet.thumbnails?.medium?.url,
+      videoId: item.id.videoId
+    })) || [];
   } catch (error) {
-    console.error('Error searching Instagram:', error);
-    return null;
+    console.error('Error fetching from YouTube API:', error);
+    return searchYouTube(placeName);
   }
 };

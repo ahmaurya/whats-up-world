@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -161,15 +160,32 @@ export const useRestaurants = () => {
       allRestaurants.push(...osmRestaurants);
       console.log(`🗺️ Found ${osmRestaurants.length} restaurants from OpenStreetMap`);
 
-      // Remove duplicates based on name and approximate location
-      const uniqueRestaurants = allRestaurants.filter((restaurant, index, self) => {
-        return index === self.findIndex((r) => {
+      // Remove duplicates, prioritizing Google Places over OpenStreetMap
+      const uniqueRestaurants = allRestaurants.reduce((acc: Restaurant[], restaurant) => {
+        const existingIndex = acc.findIndex((r) => {
           const nameSimilar = r.name.toLowerCase() === restaurant.name.toLowerCase();
           const locationSimilar = Math.abs(r.coordinates[0] - restaurant.coordinates[0]) < 0.001 &&
                                 Math.abs(r.coordinates[1] - restaurant.coordinates[1]) < 0.001;
           return nameSimilar && locationSimilar;
         });
-      });
+
+        if (existingIndex === -1) {
+          // No duplicate found, add the restaurant
+          acc.push(restaurant);
+        } else {
+          // Duplicate found, keep Google Places data over OSM data
+          const existing = acc[existingIndex];
+          if (restaurant.source === 'google' && existing.source === 'osm') {
+            // Replace OSM data with Google Places data
+            acc[existingIndex] = restaurant;
+            console.log(`🔄 Replaced OSM data with Google Places data for: ${restaurant.name}`);
+          }
+          // If both are from Google or both are from OSM, keep the first one
+          // If existing is Google and new is OSM, keep the existing Google data
+        }
+
+        return acc;
+      }, []);
 
       // Debug logging
       const vegetarianCount = uniqueRestaurants.filter(r => r.isVegetarian).length;

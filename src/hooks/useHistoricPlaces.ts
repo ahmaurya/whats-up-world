@@ -33,66 +33,16 @@ export const useHistoricPlaces = (bounds: L.LatLngBounds | null, enabled: boolea
         const north = bounds.getNorth();
         const east = bounds.getEast();
 
-        console.log('🏛️ DEBUG STEP 2: Testing different API endpoints...');
+        console.log('🏛️ Fetching historic places using OpenStreetMap Overpass API...');
 
-        // TEST 1: Try the National Register of Historic Places REST API (different format)
-        console.log('🔍 TEST 1: National Register REST API');
-        const nrhpUrl = 'https://services1.arcgis.com/fBc8EJBxQRMcHlei/ArcGIS/rest/services/NRHP_Public_Portal/FeatureServer/0/query';
-        const nrhpParams = new URLSearchParams({
-          where: '1=1',
-          outFields: '*',
-          f: 'json',
-          resultRecordCount: '5',
-          geometry: `${west},${south},${east},${north}`,
-          geometryType: 'esriGeometryEnvelope',
-          spatialRel: 'esriSpatialRelIntersects'
-        });
-        
-        const nrhpTestUrl = `${nrhpUrl}?${nrhpParams.toString()}`;
-        console.log('🔍 NRHP Test URL:', nrhpTestUrl);
-        
-        const nrhpResponse = await fetch(nrhpTestUrl);
-        console.log('🔍 NRHP Response status:', nrhpResponse.status);
-        
-        if (nrhpResponse.ok) {
-          const nrhpData = await nrhpResponse.json();
-          console.log('🔍 NRHP Response data:', nrhpData);
-          
-          if (nrhpData.features && nrhpData.features.length > 0) {
-            console.log('✅ NRHP API WORKS! Sample feature:', nrhpData.features[0]);
-            
-            // Process the data
-            const places = nrhpData.features.map((feature: any, index: number) => {
-              const attrs = feature.attributes;
-              const geom = feature.geometry;
-              
-              return {
-                id: attrs.OBJECTID || `place-${index}`,
-                name: attrs.RESNAME || attrs.NAME || 'Unknown Historic Place',
-                coordinates: [geom.x || geom.longitude || 0, geom.y || geom.latitude || 0],
-                county: attrs.COUNTY || 'Unknown County',
-                state: attrs.STATE || 'Unknown State',
-                date_listed: attrs.DATE_LISTED || attrs.DATELIST || 'Unknown Date',
-                resource_type: attrs.RESTYPE || attrs.TYPE || 'Historic Place',
-                nris_reference: attrs.NRIS_REFERENCE || attrs.REFNUM || ''
-              };
-            });
-            
-            setHistoricPlaces(places);
-            setError(null);
-            return;
-          }
-        }
-
-        // TEST 2: Try OpenStreetMap Overpass API for historic places
-        console.log('🔍 TEST 2: OpenStreetMap Overpass API');
+        // Use OpenStreetMap Overpass API for historic places
         const overpassUrl = 'https://overpass-api.de/api/interpreter';
         const overpassQuery = `
           [out:json][timeout:25];
           (
-            way["historic"~"building|castle|church|monastery|ruins|archaeological_site"]
+            way["historic"~"building|castle|church|monastery|ruins|archaeological_site|memorial|monument"]
               (${south},${west},${north},${east});
-            node["historic"~"building|castle|church|monastery|ruins|archaeological_site"]
+            node["historic"~"building|castle|church|monastery|ruins|archaeological_site|memorial|monument"]
               (${south},${west},${north},${east});
           );
           out geom;
@@ -103,58 +53,62 @@ export const useHistoricPlaces = (bounds: L.LatLngBounds | null, enabled: boolea
           body: overpassQuery
         });
         
-        console.log('🔍 Overpass Response status:', overpassResponse.status);
+        console.log('🔍 Overpass API response status:', overpassResponse.status);
         
         if (overpassResponse.ok) {
           const overpassData = await overpassResponse.json();
-          console.log('🔍 Overpass Response data:', overpassData);
+          console.log('🔍 Overpass API response data:', overpassData);
           
           if (overpassData.elements && overpassData.elements.length > 0) {
-            console.log('✅ OVERPASS API WORKS! Sample element:', overpassData.elements[0]);
+            console.log(`✅ Found ${overpassData.elements.length} historic places`);
             
-            const places = overpassData.elements.slice(0, 20).map((element: any, index: number) => {
-              const lat = element.lat || (element.center && element.center.lat) || 0;
-              const lon = element.lon || (element.center && element.center.lon) || 0;
+            const places = overpassData.elements.slice(0, 50).map((element: any) => {
+              // Handle both nodes and ways
+              let lat, lon;
+              if (element.type === 'node') {
+                lat = element.lat;
+                lon = element.lon;
+              } else if (element.type === 'way' && element.geometry && element.geometry.length > 0) {
+                // For ways, use the center point of the geometry
+                const centerIndex = Math.floor(element.geometry.length / 2);
+                lat = element.geometry[centerIndex].lat;
+                lon = element.geometry[centerIndex].lon;
+              } else if (element.center) {
+                lat = element.center.lat;
+                lon = element.center.lon;
+              } else {
+                return null;
+              }
+
+              if (!lat || !lon) return null;
               
               return {
                 id: `osm-${element.id}`,
                 name: element.tags?.name || element.tags?.historic || 'Historic Place',
                 coordinates: [lon, lat],
-                county: element.tags?.['addr:county'] || 'Unknown County',
-                state: element.tags?.['addr:state'] || 'Unknown State',
-                date_listed: element.tags?.start_date || 'Unknown Date',
+                county: element.tags?.['addr:county'] || element.tags?.['addr:city'] || 'Unknown County',
+                state: element.tags?.['addr:state'] || element.tags?.['addr:country'] || 'Unknown State',
+                date_listed: element.tags?.start_date || element.tags?.['construction_date'] || 'Unknown Date',
                 resource_type: element.tags?.historic || 'Historic Place',
-                nris_reference: ''
+                nris_reference: element.tags?.ref || ''
               };
-            });
+            }).filter(place => place !== null);
             
+            console.log(`🏛️ Processed ${places.length} valid historic places`);
             setHistoricPlaces(places);
             setError(null);
             return;
           }
         }
 
-        // TEST 3: Try a simple mock data approach for now
-        console.log('🔍 TEST 3: Using mock data as fallback');
-        const mockPlaces: HistoricPlace[] = [
-          {
-            id: 'mock-1',
-            name: 'Sample Historic Building',
-            coordinates: [(west + east) / 2, (south + north) / 2],
-            county: 'Sample County',
-            state: 'Sample State',
-            date_listed: '1980-01-01',
-            resource_type: 'Building',
-            nris_reference: 'MOCK001'
-          }
-        ];
-        
-        setHistoricPlaces(mockPlaces);
-        setError('Using mock data - check console for API test results');
+        // If no data found, show appropriate message
+        console.log('🔍 No historic places found in this area');
+        setHistoricPlaces([]);
+        setError('No historic places found in this area');
         
       } catch (err) {
-        console.error('🏛️ Error during API testing:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error during API testing');
+        console.error('🏛️ Error fetching historic places:', err);
+        setError(err instanceof Error ? err.message : 'Error fetching historic places');
         setHistoricPlaces([]);
       } finally {
         setLoading(false);

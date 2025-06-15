@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { useGeocodedImages } from '@/hooks/useGeocodedImages';
@@ -18,6 +17,31 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
   const [mapBounds, setMapBounds] = useState<any>(null);
   const [lastFetchBounds, setLastFetchBounds] = useState<any>(null);
   const [displayedImages, setDisplayedImages] = useState<GeocodedImage[]>([]);
+
+  // Listen for map ready event to trigger initial data fetch if layer is enabled
+  useEffect(() => {
+    const handleMapReady = (event: CustomEvent) => {
+      if (visible && event.detail.map) {
+        console.log('🖼️ Map ready and Cityscape layer enabled - triggering initial data fetch');
+        const mapInstance = event.detail.map as L.Map;
+        const bounds = mapInstance.getBounds();
+        const currentBounds = {
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest()
+        };
+        setMapBounds(currentBounds);
+        setLastFetchBounds(currentBounds);
+      }
+    };
+
+    window.addEventListener('mapReady', handleMapReady as EventListener);
+
+    return () => {
+      window.removeEventListener('mapReady', handleMapReady as EventListener);
+    };
+  }, [visible]);
 
   // Get current map bounds for image fetching - only when visible
   useEffect(() => {

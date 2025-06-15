@@ -1,4 +1,3 @@
-
 import { useRef, useCallback, useEffect } from 'react';
 import L from 'leaflet';
 import { useMap } from '@/components/MapProvider';
@@ -52,6 +51,9 @@ export const useLeaflet = () => {
 
           // Set up city selection listener
           setupCitySelectionListener();
+
+          // Trigger map ready event for layer managers
+          triggerMapReadyEvent();
         },
         (error) => {
           console.warn('Geolocation failed, using default location:', error);
@@ -73,6 +75,9 @@ export const useLeaflet = () => {
 
           // Set up city selection listener
           setupCitySelectionListener();
+
+          // Trigger map ready event for layer managers
+          triggerMapReadyEvent();
         },
         {
           enableHighAccuracy: true,
@@ -100,8 +105,22 @@ export const useLeaflet = () => {
 
       // Set up city selection listener
       setupCitySelectionListener();
+
+      // Trigger map ready event for layer managers
+      triggerMapReadyEvent();
     }
   }, [addPoint]);
+
+  const triggerMapReadyEvent = useCallback(() => {
+    // Wait a bit for the map to fully initialize before triggering the event
+    setTimeout(() => {
+      console.log('🗺️ Map ready - triggering mapReady event for layer managers');
+      const mapReadyEvent = new CustomEvent('mapReady', {
+        detail: { map: map.current }
+      });
+      window.dispatchEvent(mapReadyEvent);
+    }, 100);
+  }, []);
 
   const setupCitySelectionListener = useCallback(() => {
     const handleCitySelection = (event: CustomEvent) => {

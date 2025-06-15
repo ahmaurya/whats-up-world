@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import L from 'leaflet';
 import { useParking } from '@/hooks/useParking';
@@ -34,6 +33,23 @@ const ParkingManager: React.FC<ParkingManagerProps> = ({ map }) => {
       map.off('zoomend', updateBounds);
     };
   }, [map]);
+
+  // Listen for map ready event to trigger initial data fetch if layer is enabled
+  useEffect(() => {
+    const handleMapReady = (event: CustomEvent) => {
+      if (showParking && event.detail.map) {
+        console.log('🅿️ Map ready and parking layer enabled - triggering initial data fetch');
+        const mapInstance = event.detail.map as L.Map;
+        setBounds(mapInstance.getBounds());
+      }
+    };
+
+    window.addEventListener('mapReady', handleMapReady as EventListener);
+
+    return () => {
+      window.removeEventListener('mapReady', handleMapReady as EventListener);
+    };
+  }, [showParking]);
 
   // Fetch parking data
   const { parkingSpots, loading, error } = useParking(bounds, showParking);

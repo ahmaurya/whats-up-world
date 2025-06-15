@@ -38,6 +38,8 @@ export const useLiveTransitData = (map: L.Map | null) => {
 
   // Convert occupancy status enum to readable string
   const convertOccupancyStatus = (status: any): string => {
+    console.log('🔍 Converting occupancy status:', { status, type: typeof status });
+    
     if (typeof status === 'string') {
       return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
     }
@@ -58,17 +60,20 @@ export const useLiveTransitData = (map: L.Map | null) => {
   // Parse GTFS-RT protobuf data
   const parseGTFSRealtime = async (arrayBuffer: ArrayBuffer, vehicleType: 'bus' | 'rail' | 'tram', operator: string): Promise<LiveVehicle[]> => {
     try {
-      console.log(`🔍 Parsing GTFS-RT data for ${vehicleType} from ${operator}, buffer size: ${arrayBuffer.byteLength} bytes`);
+      console.log(`🔍 Starting to parse GTFS-RT data for ${vehicleType} from ${operator}`);
+      console.log(`📦 ArrayBuffer size: ${arrayBuffer.byteLength} bytes`);
       
       const gtfsRealtime = await import('gtfs-realtime-bindings');
+      console.log('📚 GTFS Realtime bindings loaded successfully');
       
       const feed = gtfsRealtime.transit_realtime.FeedMessage.decode(new Uint8Array(arrayBuffer));
       console.log(`📊 Decoded feed with ${feed.entity.length} entities`);
+      console.log('📋 Feed header:', feed.header);
       
       const vehicles: LiveVehicle[] = [];
 
       feed.entity.forEach((entity, index) => {
-        console.log(`🚌 Entity ${index}:`, {
+        console.log(`🚌 Processing entity ${index + 1}/${feed.entity.length}:`, {
           id: entity.id,
           hasVehicle: !!entity.vehicle,
           hasTripUpdate: !!entity.tripUpdate,
@@ -79,7 +84,7 @@ export const useLiveTransitData = (map: L.Map | null) => {
           const vehicle = entity.vehicle;
           const position = vehicle.position;
           
-          console.log(`📍 Vehicle ${entity.id} position:`, {
+          console.log(`📍 Vehicle ${entity.id} details:`, {
             hasPosition: !!position,
             latitude: position?.latitude,
             longitude: position?.longitude,
@@ -93,13 +98,18 @@ export const useLiveTransitData = (map: L.Map | null) => {
             } : null,
             timestamp: vehicle.timestamp,
             occupancyStatus: vehicle.occupancyStatus,
-            occupancyStatusType: typeof vehicle.occupancyStatus
+            occupancyStatusType: typeof vehicle.occupancyStatus,
+            vehicleDescriptor: vehicle.vehicle ? {
+              id: vehicle.vehicle.id,
+              label: vehicle.vehicle.label,
+              licensePlate: vehicle.vehicle.licensePlate
+            } : null
           });
           
           if (position && position.latitude && position.longitude) {
             const speed = position.speed ? position.speed * 2.237 : undefined; // Convert m/s to mph
             
-            vehicles.push({
+            const liveVehicle: LiveVehicle = {
               id: entity.id,
               routeId: vehicle.trip?.routeId || 'unknown',
               routeName: vehicle.trip?.routeId || 'Unknown Route',
@@ -112,114 +122,142 @@ export const useLiveTransitData = (map: L.Map | null) => {
               operator,
               occupancyStatus: vehicle.occupancyStatus as any,
               routeProgress: 0.5 // Default value, could be calculated based on trip progress
-            });
+            };
+            
+            vehicles.push(liveVehicle);
+            console.log(`✅ Added vehicle ${entity.id} to collection`);
+          } else {
+            console.log(`⚠️ Skipping vehicle ${entity.id} - missing position data`);
           }
         }
       });
 
-      console.log(`✅ Parsed ${vehicles.length} valid vehicles for ${vehicleType} from ${operator}`);
-      console.log(`📋 Sample vehicle data:`, vehicles[0]);
+      console.log(`✅ Successfully parsed ${vehicles.length} valid vehicles for ${vehicleType} from ${operator}`);
+      if (vehicles.length > 0) {
+        console.log(`📋 Sample vehicle data:`, vehicles[0]);
+      }
       return vehicles;
     } catch (error) {
       console.error(`❌ Error parsing GTFS-RT data for ${vehicleType}:`, error);
+      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   };
 
   // Fetch King County Metro bus positions using Supabase Edge Function
   const fetchKingCountyMetroBuses = async (): Promise<LiveVehicle[]> => {
-    console.log('🚌 Fetching King County Metro bus data via Supabase...');
+    console.log('🚌 Starting KCM bus data fetch...');
     
     try {
+      console.log('📡 Calling Supabase function for KCM data...');
       const { data, error } = await supabase.functions.invoke('get-live-transit', {
         body: { agency: 'kcm' }
       });
 
-      console.log(`📡 KCM API Response:`, { data, error });
+      console.log(`📡 KCM API Response received:`, { 
+        hasData: !!data, 
+        hasError: !!error,
+        dataType: typeof data,
+        errorDetails: error 
+      });
       
       if (error) {
-        console.error(`❌ KCM API Error:`, error);
-        throw new Error(`Supabase function error: ${error.message}`);
+        console.error(`❌ KCM Supabase function error:`, error);
+        throw new Error(`Supabase function error: ${JSON.stringify(error)}`);
       }
 
       if (!data) {
         console.error(`❌ No data received from KCM API`);
-        throw new Error('No data received from API');
+        throw new Error('No data received from KCM API');
       }
 
-      // Convert the data to ArrayBuffer if it's not already
-      let arrayBuffer: ArrayBuffer;
-      if (data instanceof ArrayBuffer) {
-        arrayBuffer = data;
-      } else if (data instanceof Uint8Array) {
-        arrayBuffer = data.buffer;
-      } else if (typeof data === 'string') {
-        // If it's base64 encoded
-        const binaryString = atob(data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        arrayBuffer = bytes.buffer;
-      } else {
-        console.error('❌ Unexpected data format:', typeof data);
-        throw new Error('Unexpected data format received');
+      console.log('📦 Raw KCM response data:', data);
+
+      // Check if there's an error in the response
+      if (data.error) {
+        console.error(`❌ KCM API returned error:`, data);
+        throw new Error(`API Error: ${data.error} - ${data.details || ''}`);
       }
+
+      if (!data.success || !data.data) {
+        console.error(`❌ Invalid KCM response format:`, data);
+        throw new Error(`Invalid response format from KCM API`);
+      }
+
+      // Convert base64 back to ArrayBuffer
+      console.log(`🔄 Converting base64 data (length: ${data.data.length}) back to ArrayBuffer...`);
+      const binaryString = atob(data.data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const arrayBuffer = bytes.buffer;
       
-      console.log(`📦 Processing ${arrayBuffer.byteLength} bytes from King County Metro`);
+      console.log(`📦 Converted to ArrayBuffer of ${arrayBuffer.byteLength} bytes`);
       
       return await parseGTFSRealtime(arrayBuffer, 'bus', 'King County Metro');
     } catch (error) {
-      console.error('❌ Error fetching KCM data:', error);
+      console.error('❌ Error in fetchKingCountyMetroBuses:', error);
+      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   };
 
   // Fetch Sound Transit light rail positions using Supabase Edge Function
   const fetchSoundTransitRail = async (): Promise<LiveVehicle[]> => {
-    console.log('🚊 Fetching Sound Transit rail data via Supabase...');
+    console.log('🚊 Starting Sound Transit rail data fetch...');
     
     try {
+      console.log('📡 Calling Supabase function for ST data...');
       const { data, error } = await supabase.functions.invoke('get-live-transit', {
         body: { agency: 'st' }
       });
 
-      console.log(`📡 ST API Response:`, { data, error });
+      console.log(`📡 ST API Response received:`, { 
+        hasData: !!data, 
+        hasError: !!error,
+        dataType: typeof data,
+        errorDetails: error 
+      });
       
       if (error) {
-        console.error(`❌ ST API Error:`, error);
-        throw new Error(`Supabase function error: ${error.message}`);
+        console.error(`❌ ST Supabase function error:`, error);
+        throw new Error(`Supabase function error: ${JSON.stringify(error)}`);
       }
 
       if (!data) {
         console.error(`❌ No data received from ST API`);
-        throw new Error('No data received from API');
+        throw new Error('No data received from ST API');
       }
 
-      // Convert the data to ArrayBuffer if it's not already
-      let arrayBuffer: ArrayBuffer;
-      if (data instanceof ArrayBuffer) {
-        arrayBuffer = data;
-      } else if (data instanceof Uint8Array) {
-        arrayBuffer = data.buffer;
-      } else if (typeof data === 'string') {
-        // If it's base64 encoded
-        const binaryString = atob(data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        arrayBuffer = bytes.buffer;
-      } else {
-        console.error('❌ Unexpected data format:', typeof data);
-        throw new Error('Unexpected data format received');
+      console.log('📦 Raw ST response data:', data);
+
+      // Check if there's an error in the response
+      if (data.error) {
+        console.error(`❌ ST API returned error:`, data);
+        throw new Error(`API Error: ${data.error} - ${data.details || ''}`);
       }
+
+      if (!data.success || !data.data) {
+        console.error(`❌ Invalid ST response format:`, data);
+        throw new Error(`Invalid response format from ST API`);
+      }
+
+      // Convert base64 back to ArrayBuffer
+      console.log(`🔄 Converting base64 data (length: ${data.data.length}) back to ArrayBuffer...`);
+      const binaryString = atob(data.data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const arrayBuffer = bytes.buffer;
       
-      console.log(`📦 Processing ${arrayBuffer.byteLength} bytes from Sound Transit`);
+      console.log(`📦 Converted to ArrayBuffer of ${arrayBuffer.byteLength} bytes`);
       
       return await parseGTFSRealtime(arrayBuffer, 'rail', 'Sound Transit');
     } catch (error) {
-      console.error('❌ Error fetching ST data:', error);
+      console.error('❌ Error in fetchSoundTransitRail:', error);
+      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   };
@@ -233,8 +271,12 @@ export const useLiveTransitData = (map: L.Map | null) => {
 
   // Fetch all live transit data
   const fetchLiveData = async () => {
-    if (!map) return;
+    if (!map) {
+      console.log('🗺️ Map not available, skipping live data fetch');
+      return;
+    }
     
+    console.log('🚀 Starting live transit data fetch...');
     setIsLoading(true);
     setError(null);
     
@@ -247,6 +289,8 @@ export const useLiveTransitData = (map: L.Map | null) => {
         fetchSeattleStreetcars()
       ]);
       
+      console.log('📊 All API calls completed. Processing results...');
+      
       const buses = results[0].status === 'fulfilled' ? results[0].value : [];
       const rail = results[1].status === 'fulfilled' ? results[1].value : [];
       const trams = results[2].status === 'fulfilled' ? results[2].value : [];
@@ -256,6 +300,8 @@ export const useLiveTransitData = (map: L.Map | null) => {
         const types = ['buses', 'rail', 'trams'];
         if (result.status === 'rejected') {
           console.error(`❌ Failed to fetch ${types[index]}:`, result.reason);
+        } else {
+          console.log(`✅ Successfully fetched ${result.value.length} ${types[index]}`);
         }
       });
       
@@ -266,13 +312,18 @@ export const useLiveTransitData = (map: L.Map | null) => {
         totalVehicles: buses.length + rail.length + trams.length
       });
       
-      // Log sample data
+      // Log detailed sample data
       if (buses.length > 0) {
-        console.log(`🚌 Sample bus data:`, buses[0]);
+        console.log(`🚌 Sample bus data (first 3):`, buses.slice(0, 3));
       }
       if (rail.length > 0) {
-        console.log(`🚊 Sample rail data:`, rail[0]);
+        console.log(`🚊 Sample rail data (first 3):`, rail.slice(0, 3));
       }
+      
+      console.log('📊 COMPLETE LIVE TRANSIT DATA DUMP:');
+      console.log('🚌 ALL BUSES:', buses);
+      console.log('🚊 ALL RAIL:', rail);
+      console.log('🚋 ALL TRAMS:', trams);
       
       setLiveData({
         buses,
@@ -282,6 +333,7 @@ export const useLiveTransitData = (map: L.Map | null) => {
       });
     } catch (err) {
       console.error('❌ Error fetching live transit data:', err);
+      console.error('❌ Error stack:', err.stack);
       setError('Failed to fetch live transit data');
       setLiveData({
         buses: [],
@@ -298,6 +350,8 @@ export const useLiveTransitData = (map: L.Map | null) => {
   useEffect(() => {
     if (!map) return;
     
+    console.log('🔄 Setting up live transit data fetching...');
+    
     // Initial fetch
     fetchLiveData();
     
@@ -307,6 +361,7 @@ export const useLiveTransitData = (map: L.Map | null) => {
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        console.log('🔄 Cleared live transit data fetch interval');
       }
     };
   }, [map]);
@@ -317,6 +372,7 @@ export const useLiveTransitData = (map: L.Map | null) => {
     
     const handleMapMove = () => {
       // Refresh data when map moves
+      console.log('🗺️ Map moved, refreshing live transit data...');
       fetchLiveData();
     };
     

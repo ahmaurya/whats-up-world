@@ -80,22 +80,34 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: `${agencyName} API error: ${response.status}`,
-          details: errorText
+          details: errorText,
+          status: response.status
         }),
         { 
-          status: 502, 
+          status: 200, // Return 200 to client so we can see the actual error
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
     }
 
-    const data = await response.arrayBuffer()
-    console.log(`✅ Successfully received ${data.byteLength} bytes from ${agencyName}`)
+    const arrayBuffer = await response.arrayBuffer()
+    console.log(`✅ Successfully received ${arrayBuffer.byteLength} bytes from ${agencyName}`)
 
-    return new Response(data, {
+    // Convert ArrayBuffer to base64 for JSON transmission
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const base64String = btoa(String.fromCharCode(...uint8Array));
+    
+    console.log(`📦 Converted to base64 string of length: ${base64String.length}`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      agency: agencyName,
+      dataSize: arrayBuffer.byteLength,
+      data: base64String
+    }), {
       headers: {
         ...corsHeaders,
-        'Content-Type': 'application/x-protobuf',
+        'Content-Type': 'application/json',
         'Cache-Control': 'public, max-age=30'
       }
     })
@@ -111,7 +123,7 @@ serve(async (req) => {
         type: error.constructor.name
       }),
       { 
-        status: 500, 
+        status: 200, // Return 200 so we can see the error in client
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )

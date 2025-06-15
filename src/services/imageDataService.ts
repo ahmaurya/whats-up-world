@@ -1,3 +1,5 @@
+import { imageCacheService } from './imageCacheService';
+
 export interface GeocodedImage {
   id: string;
   latitude: number;
@@ -27,6 +29,12 @@ class ImageDataService {
   private nasaApiKey = 'Vtvhfp4Wn05UqQ6AsD2Pj7QhCa1yNNSPicpBhAqQ';
 
   async fetchFlickrImages(params: ImageSearchParams): Promise<GeocodedImage[]> {
+    // Check cache first
+    const cachedData = imageCacheService.get('flickr', params.bounds);
+    if (cachedData) {
+      return cachedData;
+    }
+
     try {
       const { bounds, limit = 50 } = params;
       
@@ -52,7 +60,7 @@ class ImageDataService {
         return [];
       }
 
-      return data.photos.photo.map((photo: any): GeocodedImage => ({
+      const results = data.photos.photo.map((photo: any): GeocodedImage => ({
         id: `flickr_${photo.id}`,
         latitude: parseFloat(photo.latitude),
         longitude: parseFloat(photo.longitude),
@@ -64,6 +72,10 @@ class ImageDataService {
         author: photo.ownername,
         tags: photo.tags?.split(' ').filter(Boolean)
       }));
+
+      // Cache the results
+      imageCacheService.set('flickr', params.bounds, results);
+      return results;
     } catch (error) {
       console.error('Error fetching Flickr images:', error);
       return [];
@@ -71,6 +83,12 @@ class ImageDataService {
   }
 
   async fetchMapillaryImages(params: ImageSearchParams): Promise<GeocodedImage[]> {
+    // Check cache first
+    const cachedData = imageCacheService.get('mapillary', params.bounds);
+    if (cachedData) {
+      return cachedData;
+    }
+
     try {
       const { bounds, limit = 50 } = params;
       
@@ -91,7 +109,7 @@ class ImageDataService {
         return [];
       }
 
-      return data.data.map((image: any): GeocodedImage => ({
+      const results = data.data.map((image: any): GeocodedImage => ({
         id: `mapillary_${image.id}`,
         latitude: image.geometry.coordinates[1],
         longitude: image.geometry.coordinates[0],
@@ -101,6 +119,10 @@ class ImageDataService {
         description: 'Street-level imagery from Mapillary',
         source: 'mapillary'
       }));
+
+      // Cache the results
+      imageCacheService.set('mapillary', params.bounds, results);
+      return results;
     } catch (error) {
       console.error('Error fetching Mapillary images:', error);
       return [];
@@ -108,6 +130,12 @@ class ImageDataService {
   }
 
   async fetchNASAImages(params: ImageSearchParams): Promise<GeocodedImage[]> {
+    // Check cache first
+    const cachedData = imageCacheService.get('nasa', params.bounds);
+    if (cachedData) {
+      return cachedData;
+    }
+
     try {
       const { bounds } = params;
       
@@ -129,7 +157,7 @@ class ImageDataService {
         const imageBlob = await response.blob();
         const imageUrl = URL.createObjectURL(imageBlob);
         
-        return [{
+        const results = [{
           id: `nasa_${centerLat}_${centerLon}`,
           latitude: centerLat,
           longitude: centerLon,
@@ -139,6 +167,10 @@ class ImageDataService {
           description: `Satellite view of ${centerLat.toFixed(4)}, ${centerLon.toFixed(4)}`,
           source: 'nasa'
         }];
+
+        // Cache the results
+        imageCacheService.set('nasa', params.bounds, results);
+        return results;
       }
 
       return [];

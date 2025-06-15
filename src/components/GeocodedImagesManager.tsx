@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { useGeocodedImages } from '@/hooks/useGeocodedImages';
@@ -61,8 +60,8 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
           <div class="source-badge">${image.source}</div>
         </div>
       `,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20]
+      iconSize: [60, 60],
+      iconAnchor: [30, 30]
     });
 
     const marker = L.marker([image.latitude, image.longitude], {

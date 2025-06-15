@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useMap } from './MapProvider';
-import { Train, Bus, Zap, Leaf, UtensilsCrossed, Building2 } from 'lucide-react';
+import { Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, AlertTriangle } from 'lucide-react';
 
 const MapControls = () => {
   const { 
@@ -18,7 +18,9 @@ const MapControls = () => {
     showNonVegetarianRestaurants,
     toggleNonVegetarianRestaurants,
     showHistoricPlaces,
-    toggleHistoricPlaces
+    toggleHistoricPlaces,
+    showGDELTEvents,
+    toggleGDELTEvents
   } = useMap();
 
   return (
@@ -88,6 +90,17 @@ const MapControls = () => {
           <Building2 size={14} />
           <div className="w-3 h-3 bg-amber-600 rounded-full mr-1"></div>
           Historic Places
+        </Button>
+
+        <Button
+          variant={showGDELTEvents ? "default" : "outline"}
+          size="sm"
+          onClick={toggleGDELTEvents}
+          className="flex items-center gap-2 w-full justify-start text-xs px-3 py-1.5 min-w-[180px]"
+        >
+          <AlertTriangle size={14} />
+          <div className="w-3 h-3 bg-red-500 rounded-full mr-1 animate-pulse"></div>
+          Live Events
         </Button>
       </div>
     </Card>

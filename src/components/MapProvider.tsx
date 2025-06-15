@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface MapContextType {
@@ -21,6 +20,8 @@ interface MapContextType {
   toggleNonVegetarianRestaurants: () => void;
   showHistoricPlaces: boolean;
   toggleHistoricPlaces: () => void;
+  showGDELTEvents: boolean;
+  toggleGDELTEvents: () => void;
 }
 
 const MapContext = createContext<MapContextType | undefined>(undefined);
@@ -47,6 +48,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
   const [showVegetarianRestaurants, setShowVegetarianRestaurants] = useState(true);
   const [showNonVegetarianRestaurants, setShowNonVegetarianRestaurants] = useState(false);
   const [showHistoricPlaces, setShowHistoricPlaces] = useState(false);
+  const [showGDELTEvents, setShowGDELTEvents] = useState(false);
 
   const addPoint = (point: [number, number]) => {
     setSelectedPoints(prev => {
@@ -116,6 +118,10 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
     setShowHistoricPlaces(prev => !prev);
   };
 
+  const toggleGDELTEvents = () => {
+    setShowGDELTEvents(prev => !prev);
+  };
+
   return (
     <MapContext.Provider value={{
       selectedPoints,
@@ -136,7 +142,9 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
       showNonVegetarianRestaurants,
       toggleNonVegetarianRestaurants,
       showHistoricPlaces,
-      toggleHistoricPlaces
+      toggleHistoricPlaces,
+      showGDELTEvents,
+      toggleGDELTEvents
     }}>
       {children}
     </MapContext.Provider>

@@ -7,7 +7,6 @@ import RestaurantPopup from './RestaurantPopup';
 import TransitLinesManager from './TransitLinesManager';
 import RestaurantMarkersManager from './RestaurantMarkersManager';
 import HistoricPlacesManager from './HistoricPlacesManager';
-import GDELTEventsManager from './GDELTEventsManager';
 import { Restaurant } from '@/hooks/useRestaurants';
 
 const Map = () => {
@@ -32,7 +31,6 @@ const Map = () => {
         onRestaurantClick={handleRestaurantClick} 
       />
       <HistoricPlacesManager map={map.current} />
-      <GDELTEventsManager map={map.current} />
       {selectedRestaurant && (
         <RestaurantPopup
           restaurant={selectedRestaurant}

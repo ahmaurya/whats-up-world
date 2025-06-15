@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMap } from './MapProvider';
-import { Settings, Train, Bus, Zap, Leaf, UtensilsCrossed, Building2, AlertTriangle } from 'lucide-react';
+import { Settings, Train, Bus, Zap, Leaf, UtensilsCrossed, Building2 } from 'lucide-react';
 
 const MapControls = () => {
   const { 
@@ -26,9 +26,7 @@ const MapControls = () => {
     showNonVegetarianRestaurants,
     toggleNonVegetarianRestaurants,
     showHistoricPlaces,
-    toggleHistoricPlaces,
-    showGDELTEvents,
-    toggleGDELTEvents
+    toggleHistoricPlaces
   } = useMap();
 
   const layerOptions = [
@@ -79,14 +77,6 @@ const MapControls = () => {
       color: 'bg-amber-600',
       checked: showHistoricPlaces,
       toggle: toggleHistoricPlaces
-    },
-    {
-      id: 'events',
-      label: 'Live Events',
-      icon: AlertTriangle,
-      color: 'bg-red-500',
-      checked: showGDELTEvents,
-      toggle: toggleGDELTEvents
     }
   ];
 
@@ -123,7 +113,7 @@ const MapControls = () => {
                     className="flex items-center gap-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
                   >
                     <IconComponent size={14} />
-                    <div className={`w-3 h-3 rounded-full ${option.color} ${option.id === 'events' && option.checked ? 'animate-pulse' : ''}`}></div>
+                    <div className={`w-3 h-3 rounded-full ${option.color}`}></div>
                     {option.label}
                   </label>
                 </div>

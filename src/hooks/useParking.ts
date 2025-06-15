@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 
 export interface ParkingSpot {
@@ -156,36 +155,43 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
     try {
       console.log(`♿ Fetching disabled parking spots near ${lat}, ${lng} within ${radius}m`);
 
-      // Simple and focused queries for disabled parking
+      // Much broader queries to catch all possible disabled parking variations
       const queries = [
-        // Query 1: Basic disabled parking
+        // Query 1: All parking with any disabled-related tags
         `
-        [out:json][timeout:25];
+        [out:json][timeout:30];
         (
-          way["amenity"="parking"]["disabled"="yes"](around:${radius},${lat},${lng});
-          way["amenity"="parking"]["disabled"="designated"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["disabled"="yes"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["disabled"="designated"](around:${radius},${lat},${lng});
-        );
-        out center;
-        `,
-        
-        // Query 2: Wheelchair accessible
-        `
-        [out:json][timeout:25];
-        (
-          way["amenity"="parking"]["wheelchair"="yes"](around:${radius},${lat},${lng});
-          node["amenity"="parking"]["wheelchair"="yes"](around:${radius},${lat},${lng});
-        );
-        out center;
-        `,
-        
-        // Query 3: Capacity-based disabled parking
-        `
-        [out:json][timeout:25];
-        (
+          way["amenity"="parking"]["disabled"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["disabled"](around:${radius},${lat},${lng});
+          way["amenity"="parking"]["wheelchair"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["wheelchair"](around:${radius},${lat},${lng});
           way["amenity"="parking"]["capacity:disabled"](around:${radius},${lat},${lng});
           node["amenity"="parking"]["capacity:disabled"](around:${radius},${lat},${lng});
+          way["amenity"="parking"]["handicap"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["handicap"](around:${radius},${lat},${lng});
+          way["amenity"="parking"]["access"="disabled"](around:${radius},${lat},${lng});
+          node["amenity"="parking"]["access"="disabled"](around:${radius},${lat},${lng});
+        );
+        out center;
+        `,
+        
+        // Query 2: All parking spots (we'll filter for disabled ones later)
+        `
+        [out:json][timeout:30];
+        (
+          way["amenity"="parking"](around:${radius},${lat},${lng});
+          node["amenity"="parking"](around:${radius},${lat},${lng});
+        );
+        out center;
+        `,
+        
+        // Query 3: Street parking with disabled access
+        `
+        [out:json][timeout:30];
+        (
+          way["parking"~"street_side|lane|layby"]["disabled"](around:${radius},${lat},${lng});
+          way["parking"~"street_side|lane|layby"]["wheelchair"](around:${radius},${lat},${lng});
+          way["parking"~"street_side|lane|layby"]["capacity:disabled"](around:${radius},${lat},${lng});
         );
         out center;
         `
@@ -195,7 +201,7 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
       
       for (let i = 0; i < queries.length; i++) {
         try {
-          console.log(`♿ Trying query ${i + 1}`);
+          console.log(`♿ Trying query ${i + 1} of ${queries.length}`);
           
           const response = await fetch('https://overpass-api.de/api/interpreter', {
             method: 'POST',
@@ -220,23 +226,46 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
         }
       }
 
-      console.log(`♿ Total elements collected: ${allSpots.length}`);
+      console.log(`♿ Total elements collected from all queries: ${allSpots.length}`);
 
-      const processedSpots: DisabledParkingSpot[] = allSpots
+      // Remove exact duplicates by ID
+      const uniqueElements = allSpots.filter((element, index, array) => 
+        array.findIndex(e => e.id === element.id) === index
+      );
+      
+      console.log(`♿ Unique elements after deduplication: ${uniqueElements.length}`);
+
+      const processedSpots: DisabledParkingSpot[] = uniqueElements
         .filter((element: any) => {
           const tags = element.tags || {};
           console.log(`♿ Checking element ${element.id} with tags:`, tags);
           
-          // Filter for disabled/wheelchair accessible parking
-          return tags.disabled === 'yes' || 
-                 tags.disabled === 'designated' ||
-                 tags['parking:disabled'] === 'yes' ||
-                 tags['parking:disabled'] === 'designated' ||
-                 tags.wheelchair === 'yes' ||
-                 tags.wheelchair === 'designated' ||
-                 tags['capacity:disabled'] ||
-                 tags.handicap === 'yes' ||
-                 tags.handicap === 'designated';
+          // Much broader filter - include any parking that might have disabled access
+          const hasDisabledAccess = 
+            tags.disabled === 'yes' || 
+            tags.disabled === 'designated' ||
+            tags.disabled === 'only' ||
+            tags['parking:disabled'] === 'yes' ||
+            tags['parking:disabled'] === 'designated' ||
+            tags['parking:disabled'] === 'only' ||
+            tags.wheelchair === 'yes' ||
+            tags.wheelchair === 'designated' ||
+            tags.wheelchair === 'limited' ||
+            tags['capacity:disabled'] ||
+            tags.handicap === 'yes' ||
+            tags.handicap === 'designated' ||
+            tags.handicap === 'only' ||
+            tags.access === 'disabled' ||
+            // Also include parking that might serve disabled users based on capacity
+            (tags.capacity && parseInt(tags.capacity) > 0 && tags['capacity:disabled']) ||
+            // Include parking with specific disabled-friendly features
+            tags.surface === 'paved' && tags.wheelchair === 'yes';
+            
+          if (hasDisabledAccess) {
+            console.log(`♿ Element ${element.id} qualifies as disabled parking`);
+          }
+          
+          return hasDisabledAccess;
         })
         .map((element: any) => {
           const tags = element.tags || {};
@@ -259,12 +288,12 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
             fee = 'yes';
           }
 
-          // Properly handle capacity
+          // Properly handle capacity - prioritize disabled capacity if available
           let capacity: number | undefined;
-          if (tags.capacity && !isNaN(parseInt(tags.capacity))) {
-            capacity = parseInt(tags.capacity);
-          } else if (tags['capacity:disabled'] && !isNaN(parseInt(tags['capacity:disabled']))) {
+          if (tags['capacity:disabled'] && !isNaN(parseInt(tags['capacity:disabled']))) {
             capacity = parseInt(tags['capacity:disabled']);
+          } else if (tags.capacity && !isNaN(parseInt(tags.capacity))) {
+            capacity = parseInt(tags.capacity);
           }
 
           const spot: DisabledParkingSpot = {

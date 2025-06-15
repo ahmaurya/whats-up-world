@@ -26,7 +26,10 @@ export const useSeattleDisabledParking = () => {
         `https://data.seattle.gov/resource/7jzm-ucez.json?$where=within_box(location,${bbox.south},${bbox.west},${bbox.north},${bbox.east})&$limit=1000`,
         
         // Query 3: Street parking with accessibility info
-        `https://data.seattle.gov/resource/926b-jbpn.json?$where=within_box(location,${bbox.south},${bbox.west},${bbox.north},${bbox.east})&$limit=1000`
+        `https://data.seattle.gov/resource/926b-jbpn.json?$where=within_box(location,${bbox.south},${bbox.west},${bbox.north},${bbox.east})&$limit=1000`,
+
+        // Query 4: Seattle City GIS - Curb Space Categories (DISABL spaces)
+        `https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Curb_Space_Categories/FeatureServer/0/query?where=SPACETYPE='DISABL'&geometry=${bbox.west},${bbox.south},${bbox.east},${bbox.north}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=true&f=json`
       ];
 
       let allSpots: any[] = [];
@@ -43,11 +46,25 @@ export const useSeattleDisabledParking = () => {
           }
 
           const data = await response.json();
-          console.log(`🏙️ Seattle query ${i + 1} returned ${data?.length || 0} elements`);
           
-          if (data && Array.isArray(data) && data.length > 0) {
-            console.log(`🏙️ Sample elements from Seattle query ${i + 1}:`, data.slice(0, 3));
-            allSpots.push(...data);
+          if (i === 3) {
+            // Handle ArcGIS response format for curb space data
+            if (data.features && Array.isArray(data.features) && data.features.length > 0) {
+              console.log(`🏙️ Seattle GIS query returned ${data.features.length} curb space features`);
+              console.log(`🏙️ Sample GIS features:`, data.features.slice(0, 3));
+              allSpots.push(...data.features.map((feature: any) => ({
+                ...feature.attributes,
+                geometry: feature.geometry
+              })));
+            }
+          } else {
+            // Handle SODA API response format
+            console.log(`🏙️ Seattle query ${i + 1} returned ${data?.length || 0} elements`);
+            
+            if (data && Array.isArray(data) && data.length > 0) {
+              console.log(`🏙️ Sample elements from Seattle query ${i + 1}:`, data.slice(0, 3));
+              allSpots.push(...data);
+            }
           }
           
         } catch (queryError) {
@@ -69,7 +86,8 @@ export const useSeattleDisabledParking = () => {
             (item.use_type && item.use_type.toLowerCase().includes('disabled')) ||
             (item.accessibility && item.accessibility === 'yes') ||
             item.ada_accessible === 'Y' ||
-            item.accessible === 'Y';
+            item.accessible === 'Y' ||
+            item.SPACETYPE === 'DISABL'; // GIS curb space data
             
           return hasDisabledFeature;
         })
@@ -77,7 +95,15 @@ export const useSeattleDisabledParking = () => {
           // Extract coordinates
           let coordinates: [number, number];
           
-          if (item.location?.coordinates) {
+          if (item.geometry && item.geometry.paths) {
+            // ArcGIS geometry format (polyline) - use first point
+            const firstPath = item.geometry.paths[0];
+            if (firstPath && firstPath[0]) {
+              coordinates = [firstPath[0][0], firstPath[0][1]];
+            } else {
+              coordinates = [lng, lat]; // fallback
+            }
+          } else if (item.location?.coordinates) {
             coordinates = [item.location.coordinates[0], item.location.coordinates[1]];
           } else if (item.location?.longitude && item.location?.latitude) {
             coordinates = [parseFloat(item.location.longitude), parseFloat(item.location.latitude)];
@@ -92,22 +118,22 @@ export const useSeattleDisabledParking = () => {
 
           // Determine fee
           let fee: 'no' | 'yes' | 'unknown' = 'unknown';
-          if (item.paid_area === 'Paid' || item.rate_range || item.cost) {
+          if (item.paid_area === 'Paid' || item.rate_range || item.cost || item.PAIDAREA === 'Paid') {
             fee = 'yes';
-          } else if (item.paid_area === 'Free' || item.rate_range === '0') {
+          } else if (item.paid_area === 'Free' || item.rate_range === '0' || item.PAIDAREA === 'Free') {
             fee = 'no';
           }
 
           const spot: DisabledParkingSpot = {
-            id: `seattle_disabled_${item.objectid || item.id || Math.random()}`,
+            id: `seattle_disabled_${item.objectid || item.OBJECTID || item.id || Math.random()}`,
             name,
             coordinates,
             type: 'disabled',
             fee,
-            timeLimit: item.time_limit || item.time_restriction,
-            restrictions: item.restrictions || item.sign_description,
-            surface: item.surface_type,
-            capacity: item.spaces ? parseInt(item.spaces) : undefined,
+            timeLimit: item.time_limit || item.time_restriction || item.TIMELIMIT,
+            restrictions: item.restrictions || item.sign_description || item.RESTRICTION,
+            surface: item.surface_type || item.SURFACE,
+            capacity: item.spaces ? parseInt(item.spaces) : (item.SPACES ? parseInt(item.SPACES) : undefined),
             source: 'openstreetmap' // Keep consistent with interface
           };
 
@@ -157,10 +183,12 @@ const calculateBoundingBox = (lat: number, lng: number, radiusMeters: number) =>
 
 // Helper function to generate parking names
 const generateSeattleParkingName = (item: any): string => {
+  if (item.STREETNAME) return `Disabled Parking - ${item.STREETNAME}`;
   if (item.location_description) return `Disabled Parking - ${item.location_description}`;
   if (item.street_name) return `Disabled Parking - ${item.street_name}`;
   if (item.address) return `Disabled Parking - ${item.address}`;
   if (item.block_nbr && item.street) return `Disabled Parking - ${item.block_nbr} ${item.street}`;
+  if (item.UNITDESC) return `Disabled Parking - ${item.UNITDESC}`;
   return 'Disabled Parking - Seattle';
 };
 

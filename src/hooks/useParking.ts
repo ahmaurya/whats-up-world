@@ -173,6 +173,8 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
         out center;
       `;
 
+      console.log(`♿ Overpass query:`, overpassQuery);
+
       const response = await fetch('https://overpass-api.de/api/interpreter', {
         method: 'POST',
         body: overpassQuery,
@@ -183,11 +185,33 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
       }
 
       const data = await response.json();
-      console.log(`♿ Raw disabled parking data:`, data);
+      console.log(`♿ Raw disabled parking API response:`, data);
+      console.log(`♿ Total elements returned: ${data.elements?.length || 0}`);
+
+      if (data.elements && data.elements.length > 0) {
+        console.log(`♿ First few elements:`, data.elements.slice(0, 5));
+        
+        // Log element types breakdown
+        const elementTypes = data.elements.reduce((acc: any, el: any) => {
+          acc[el.type] = (acc[el.type] || 0) + 1;
+          return acc;
+        }, {});
+        console.log(`♿ Element types breakdown:`, elementTypes);
+
+        // Log elements with disabled tags
+        const elementsWithDisabledTags = data.elements.filter((el: any) => {
+          const tags = el.tags || {};
+          return tags.disabled || tags['parking:disabled'] || tags.parking === 'disabled';
+        });
+        console.log(`♿ Elements with disabled-related tags: ${elementsWithDisabledTags.length}`);
+        console.log(`♿ Sample disabled elements:`, elementsWithDisabledTags.slice(0, 3));
+      }
 
       const processedSpots: DisabledParkingSpot[] = data.elements
         .map((element: any) => {
           const tags = element.tags || {};
+          
+          console.log(`♿ Processing element ${element.id}:`, { type: element.type, tags });
           
           // Get coordinates
           let coordinates: [number, number];
@@ -199,7 +223,7 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
             coordinates = [lng, lat]; // fallback
           }
 
-          return {
+          const spot = {
             id: `disabled_parking_${element.id}`,
             name: tags.name || generateDisabledParkingName(tags),
             coordinates,
@@ -211,15 +235,26 @@ export const useDisabledParking = (bounds?: L.LatLngBounds | null, enabled: bool
             capacity: tags.capacity ? parseInt(tags.capacity) : undefined,
             source: 'openstreetmap' as const
           };
+
+          console.log(`♿ Created spot:`, spot);
+          return spot;
         })
-        .filter((spot: DisabledParkingSpot) => 
-          spot.coordinates[0] !== 0 && spot.coordinates[1] !== 0
-        );
+        .filter((spot: DisabledParkingSpot) => {
+          const isValid = spot.coordinates[0] !== 0 && spot.coordinates[1] !== 0;
+          if (!isValid) {
+            console.log(`♿ Filtering out spot with invalid coordinates:`, spot);
+          }
+          return isValid;
+        });
+
+      console.log(`♿ Processed spots before deduplication: ${processedSpots.length}`);
 
       // Deduplicate disabled parking spots
       const deduplicatedSpots = deduplicateDisabledParkingSpots(processedSpots);
 
-      console.log(`♿ Processed ${deduplicatedSpots.length} disabled parking spots (${processedSpots.length - deduplicatedSpots.length} duplicates removed)`);
+      console.log(`♿ Final processed ${deduplicatedSpots.length} disabled parking spots (${processedSpots.length - deduplicatedSpots.length} duplicates removed)`);
+      console.log(`♿ All disabled parking spots:`, deduplicatedSpots);
+      
       setDisabledParkingSpots(deduplicatedSpots);
 
     } catch (err) {

@@ -16,20 +16,38 @@ class ImageCacheService {
   private maxCacheSize = 100; // Maximum number of cached entries
 
   private generateCacheKey(source: string, bounds: any): string {
-    return `${source}_${bounds.north}_${bounds.south}_${bounds.east}_${bounds.west}`;
+    // Use rounded coordinates to increase cache hits for similar areas
+    const roundedBounds = {
+      north: Math.round(bounds.north * 1000) / 1000,
+      south: Math.round(bounds.south * 1000) / 1000,
+      east: Math.round(bounds.east * 1000) / 1000,
+      west: Math.round(bounds.west * 1000) / 1000
+    };
+    return `${source}_${roundedBounds.north}_${roundedBounds.south}_${roundedBounds.east}_${roundedBounds.west}`;
   }
 
-  private isWithinBounds(cachedBounds: any, requestedBounds: any, tolerance = 0.001): boolean {
-    return (
-      Math.abs(cachedBounds.north - requestedBounds.north) <= tolerance &&
-      Math.abs(cachedBounds.south - requestedBounds.south) <= tolerance &&
-      Math.abs(cachedBounds.east - requestedBounds.east) <= tolerance &&
-      Math.abs(cachedBounds.west - requestedBounds.west) <= tolerance
-    );
+  private boundsOverlap(bounds1: any, bounds2: any, overlapThreshold = 0.7): boolean {
+    const intersection = {
+      north: Math.min(bounds1.north, bounds2.north),
+      south: Math.max(bounds1.south, bounds2.south),
+      east: Math.min(bounds1.east, bounds2.east),
+      west: Math.max(bounds1.west, bounds2.west)
+    };
+
+    // Check if there's actual intersection
+    if (intersection.north <= intersection.south || intersection.east <= intersection.west) {
+      return false;
+    }
+
+    // Calculate overlap area vs requested area
+    const intersectionArea = (intersection.north - intersection.south) * (intersection.east - intersection.west);
+    const requestedArea = (bounds2.north - bounds2.south) * (bounds2.east - bounds2.west);
+    
+    return (intersectionArea / requestedArea) >= overlapThreshold;
   }
 
   get(source: string, bounds: any): any[] | null {
-    // First try exact match
+    // First try exact match with rounded bounds
     const exactKey = this.generateCacheKey(source, bounds);
     const exactMatch = this.cache.get(exactKey);
     
@@ -38,13 +56,19 @@ class ImageCacheService {
       return exactMatch.data;
     }
 
-    // Try to find a close match
+    // Try to find overlapping cached areas
     for (const [key, cached] of this.cache.entries()) {
       if (key.startsWith(source) && 
           Date.now() - cached.timestamp < this.cacheExpiry &&
-          this.isWithinBounds(cached.bounds, bounds)) {
-        console.log(`📦 Cache hit for ${source} (close match)`);
-        return cached.data;
+          this.boundsOverlap(cached.bounds, bounds)) {
+        console.log(`📦 Cache hit for ${source} (overlapping bounds)`);
+        // Filter images to only return those within the requested bounds
+        return cached.data.filter((image: any) => 
+          image.latitude >= bounds.south && 
+          image.latitude <= bounds.north &&
+          image.longitude >= bounds.west && 
+          image.longitude <= bounds.east
+        );
       }
     }
 

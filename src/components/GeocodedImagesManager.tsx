@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { useGeocodedImages } from '@/hooks/useGeocodedImages';
@@ -15,6 +16,7 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
   const [mapBounds, setMapBounds] = useState<any>(null);
+  const lastImagesRef = useRef<Map<string, GeocodedImage>>(new Map());
 
   // Get current map bounds for image fetching
   useEffect(() => {
@@ -99,40 +101,53 @@ const GeocodedImagesManager: React.FC<GeocodedImagesManagerProps> = ({
   useEffect(() => {
     if (!map || !visible) return;
 
-    console.log('🖼️ Setting up geocoded images layer...');
+    console.log('🖼️ Updating geocoded images layer...');
 
     // Create layer group if it doesn't exist
     if (!layerGroupRef.current) {
       layerGroupRef.current = L.layerGroup();
-    }
-
-    // Clear existing markers
-    markersRef.current.forEach(marker => {
-      if (layerGroupRef.current) {
-        layerGroupRef.current.removeLayer(marker);
-      }
-    });
-    markersRef.current.clear();
-
-    // Add image markers
-    images.forEach(image => {
-      const marker = createImageMarker(image);
-      markersRef.current.set(image.id, marker);
-      
-      if (layerGroupRef.current) {
-        layerGroupRef.current.addLayer(marker);
-      }
-    });
-
-    // Add layer to map
-    if (layerGroupRef.current) {
       map.addLayer(layerGroupRef.current);
     }
 
-    console.log(`🖼️ Added ${images.length} geocoded image markers`);
+    // Create a map of current images for easy lookup
+    const currentImagesMap = new Map<string, GeocodedImage>();
+    images.forEach(image => {
+      currentImagesMap.set(image.id, image);
+    });
+
+    // Remove markers that are no longer in the current image set
+    const markersToRemove: string[] = [];
+    markersRef.current.forEach((marker, imageId) => {
+      if (!currentImagesMap.has(imageId)) {
+        if (layerGroupRef.current) {
+          layerGroupRef.current.removeLayer(marker);
+        }
+        markersToRemove.push(imageId);
+      }
+    });
+    markersToRemove.forEach(id => markersRef.current.delete(id));
+
+    // Add new markers for images that aren't already displayed
+    let newMarkersCount = 0;
+    images.forEach(image => {
+      if (!markersRef.current.has(image.id)) {
+        const marker = createImageMarker(image);
+        markersRef.current.set(image.id, marker);
+        
+        if (layerGroupRef.current) {
+          layerGroupRef.current.addLayer(marker);
+        }
+        newMarkersCount++;
+      }
+    });
+
+    // Update the reference to current images
+    lastImagesRef.current = currentImagesMap;
+
+    console.log(`🖼️ Updated geocoded images: ${newMarkersCount} new, ${markersToRemove.length} removed, ${images.length} total`);
 
     return () => {
-      if (layerGroupRef.current && map) {
+      if (layerGroupRef.current && map && !visible) {
         map.removeLayer(layerGroupRef.current);
       }
     };

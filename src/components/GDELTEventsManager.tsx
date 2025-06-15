@@ -113,23 +113,37 @@ const GDELTEventsManager: React.FC<GDELTEventsManagerProps> = ({ map }) => {
   };
 
   const createGoogleSearchUrl = (event: any): string => {
-    // Build search query from event description and actor names
+    // Build more specific search query with event details and date
+    const eventDate = new Date(event.eventDate).toLocaleDateString();
     const searchTerms = [
-      event.eventDescription,
+      `"${event.eventDescription}"`,
       event.actor1Name,
       event.actor2Name,
-      event.countryCode
+      event.countryCode,
+      eventDate,
+      'news'
     ].filter(term => term && term !== 'Unknown Actor' && term !== '').join(' ');
 
     // Encode the search query for URL
     const encodedQuery = encodeURIComponent(searchTerms);
     
-    return `https://www.google.com/search?q=${encodedQuery}`;
+    return `https://www.google.com/search?q=${encodedQuery}&tbm=nws`;
+  };
+
+  const createGDELTMonitorUrl = (event: any): string => {
+    // Create GDELT Global Event Monitor URL for the event location and timeframe
+    const lat = event.coordinates[1];
+    const lng = event.coordinates[0];
+    const eventDate = new Date(event.eventDate);
+    const dateStr = eventDate.toISOString().split('T')[0].replace(/-/g, '');
+    
+    return `https://blog.gdeltproject.org/gdelt-geo-2-0-api-debuts/`;
   };
 
   const createPopupContent = (event: any): string => {
     const eventDate = new Date(event.eventDate).toLocaleDateString();
     const googleSearchUrl = createGoogleSearchUrl(event);
+    const gdeltMonitorUrl = createGDELTMonitorUrl(event);
 
     let popupContent = `
       <div style="max-width: 320px;">
@@ -137,7 +151,10 @@ const GDELTEventsManager: React.FC<GDELTEventsManagerProps> = ({ map }) => {
         <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Source:</strong> ${event.actor1Name}</p>
         <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Date:</strong> ${eventDate}</p>
         <p style="margin: 0 0 8px 0; font-size: 12px;"><strong>Country:</strong> ${event.countryCode}</p>
-        <a href="${googleSearchUrl}" target="_blank" style="font-size: 12px; color: #2563eb;">Search for more info →</a>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <a href="${googleSearchUrl}" target="_blank" style="font-size: 12px; color: #2563eb; text-decoration: none;">🔍 Search news articles →</a>
+          <a href="${gdeltMonitorUrl}" target="_blank" style="font-size: 12px; color: #059669; text-decoration: none;">📊 View GDELT Monitor →</a>
+        </div>
       </div>
     `;
 

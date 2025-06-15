@@ -100,7 +100,7 @@ const MapControls = () => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent 
-          className="w-64 bg-white border shadow-lg z-[2001]" 
+          className="w-72 bg-white border shadow-lg z-[2001]" 
           align="end"
           side="bottom"
         >

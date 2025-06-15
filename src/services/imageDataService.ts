@@ -1,3 +1,4 @@
+
 import { imageCacheService } from './imageCacheService';
 
 export interface GeocodedImage {
@@ -157,7 +158,7 @@ class ImageDataService {
         const imageBlob = await response.blob();
         const imageUrl = URL.createObjectURL(imageBlob);
         
-        const results = [{
+        const results: GeocodedImage[] = [{
           id: `nasa_${centerLat}_${centerLon}`,
           latitude: centerLat,
           longitude: centerLon,
@@ -165,7 +166,7 @@ class ImageDataService {
           fullImageUrl: imageUrl,
           title: 'NASA Earth Imagery',
           description: `Satellite view of ${centerLat.toFixed(4)}, ${centerLon.toFixed(4)}`,
-          source: 'nasa'
+          source: 'nasa' as const
         }];
 
         // Cache the results
